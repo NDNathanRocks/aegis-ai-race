@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     corpus_dir: Path = BACKEND_DIR / "data" / "corpus"
     cache_dir: Path = BACKEND_DIR / ".cache"
     rate_limit_per_min: int = 30
+    sim_time_scale: float = 1.0  # 0 = instant (tests); 1 = realistic pacing
     enterprise_usd_per_million: float = 15.0
 
     @property
