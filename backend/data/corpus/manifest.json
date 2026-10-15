@@ -1,0 +1,11 @@
+{
+  "version": "1",
+  "documents": [
+    {"id": "vendor_sla_northwind_cloud", "title": "Northwind Cloud Master SLA", "category": "Vendor SLA Contract"},
+    {"id": "vendor_sla_helix_logistics", "title": "Helix Logistics SLA", "category": "Vendor SLA Contract"},
+    {"id": "invoice_policy_and_credits", "title": "Vendor Invoice Audit Policy", "category": "Finance Policy"},
+    {"id": "cloud_infra_sop_incident_response", "title": "Incident Response & Ticket Triage SOP", "category": "Cloud Infrastructure SOP"},
+    {"id": "cloud_infra_sop_change_management", "title": "Change Management SOP", "category": "Cloud Infrastructure SOP"},
+    {"id": "workforce_scheduling_policy", "title": "Workforce Scheduling Policy", "category": "Workforce Policy"}
+  ]
+}
