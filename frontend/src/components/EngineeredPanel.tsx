@@ -312,6 +312,7 @@ export function EngineeredPanel({ run, elapsedMs }: { run: EngineeredRun; elapse
             subtitle="Grounded draft → strict schema validation"
             status={gen.status}
             latencyMs={gen.latency}
+            badges={run.cacheHit && <Badge tone="good" title="The stored answer was reused">generator skipped · served from cache</Badge>}
           >
             <GeneratorBody run={run} />
           </PipelineNode>
@@ -321,7 +322,13 @@ export function EngineeredPanel({ run, elapsedMs }: { run: EngineeredRun; elapse
             subtitle="Claim-level grounding check · faithfulness · recall"
             status={critic.status}
             latencyMs={critic.latency}
-            badges={retried && <Badge tone="warn">↻ self-corrected</Badge>}
+            badges={
+              run.cacheHit ? (
+                <Badge tone="good" title="Scores were stored with the cached answer">critic skipped · cached scores</Badge>
+              ) : (
+                retried && <Badge tone="warn">↻ self-corrected</Badge>
+              )
+            }
             last
           >
             <CriticBody run={run} />

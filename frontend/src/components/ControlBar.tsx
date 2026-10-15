@@ -100,11 +100,11 @@ export function ControlBar({
             Race
           </button>
         </form>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <button
             onClick={onCacheTest}
             disabled={busy}
-            className="flex-1 whitespace-nowrap rounded-lg border border-line bg-panel px-3 py-2 text-sm hover:border-eng/60 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+            className="rounded-lg border border-line bg-panel px-3 py-2 text-sm hover:border-eng/60 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none sm:whitespace-nowrap"
           >
             ⚡ Trigger Semantic Cache Test
           </button>
@@ -112,7 +112,7 @@ export function ControlBar({
             onClick={onToggleDrawer}
             aria-expanded={drawerOpen}
             aria-controls="kb-drawer"
-            className="flex-1 whitespace-nowrap rounded-lg border border-line bg-panel px-3 py-2 text-sm hover:border-eng/60 sm:flex-none"
+            className="rounded-lg border border-line bg-panel px-3 py-2 text-sm hover:border-eng/60 sm:flex-none sm:whitespace-nowrap"
           >
             📚 Knowledge Base
           </button>

@@ -16,7 +16,7 @@ function Inline({ text }: { text: string }) {
             {p.text}
           </strong>
         ) : (
-          <span key={i}>{p.text}</span>
+          <span key={i}>{p.text.replace(/\*\*/g, "")}</span>
         ),
       )}
     </>

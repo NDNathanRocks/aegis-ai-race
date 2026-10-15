@@ -30,7 +30,7 @@ export function Scoreboard({ board, onReset }: { board: Board; onReset: () => vo
         <button
           onClick={onReset}
           disabled={board.races === 0}
-          className="rounded-md px-1.5 py-0.5 text-[11px] text-mute underline-offset-2 hover:text-ink hover:underline disabled:opacity-30"
+          className="rounded-md px-2 py-1.5 text-[11px] text-mute underline-offset-2 hover:text-ink hover:underline disabled:opacity-30"
         >
           reset
         </button>
