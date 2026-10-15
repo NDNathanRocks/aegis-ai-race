@@ -26,7 +26,7 @@ async def config(request: Request) -> dict:
         "mode": mode,
         "fallback_reason": reason,
         "cache_backend": ctx.cache_for(None).backend,
-        "vector_backend": "pgvector" if ctx.settings.database_url else "local",
+        "vector_backend": "pgvector" if type(ctx.retriever.vector_index).__name__ == "PgVectorIndex" else "local",
         "embedding_model": ctx.embedder.name,
         "cache_threshold": ctx.settings.cache_threshold,
         "usd_per_million_tokens": ctx.settings.enterprise_usd_per_million,

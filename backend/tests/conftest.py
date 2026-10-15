@@ -50,6 +50,8 @@ REAL_EMBEDDER = _load_real_embedder()
 
 
 def pytest_collection_modifyitems(config, items):
+    if REAL_EMBEDDER is None and os.environ.get("REQUIRE_MODEL") == "1":
+        raise pytest.UsageError("REQUIRE_MODEL=1 but the fastembed model could not be loaded")
     if REAL_EMBEDDER is None:
         skip = pytest.mark.skip(reason="fastembed model unavailable (offline)")
         for item in items:

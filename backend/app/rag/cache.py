@@ -1,10 +1,13 @@
 """Semantic cache: Redis-backed with automatic in-memory NumPy fallback."""
 import json
+import logging
 import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import numpy as np
+
+log = logging.getLogger("aegis.cache")
 
 
 @dataclass
@@ -116,6 +119,6 @@ def build_cache(settings, namespace: str) -> SemanticCache:
 
             client = redis.Redis.from_url(settings.redis_url, socket_connect_timeout=1.5, socket_timeout=1.5)
             return RedisSemanticCache(client, settings.cache_threshold, namespace)
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("Redis unavailable (%s: %s); using the in-memory semantic cache", type(e).__name__, e)
     return MemorySemanticCache(settings.cache_threshold)

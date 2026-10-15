@@ -1,9 +1,13 @@
 """Vector indexes: zero-config NumPy index (default) and pgvector (DATABASE_URL)."""
 import hashlib
+import logging
+import time
 from pathlib import Path
 from typing import Protocol
 
 import numpy as np
+
+log = logging.getLogger("aegis.vector_index")
 
 
 class VectorIndex(Protocol):
@@ -74,12 +78,24 @@ class PgVectorIndex:
         return [(int(i), float(s)) for i, s in rows]
 
 
-def make_vector_index(settings, embedder, texts: list[str]) -> VectorIndex:
-    """pgvector when DATABASE_URL is set and reachable, otherwise the local index."""
+def make_vector_index(settings, embedder, texts: list[str], attempts: int = 6, delay_s: float = 1.5) -> VectorIndex:
+    """pgvector when DATABASE_URL is set and reachable, otherwise the local index.
+
+    Postgres commonly starts a few seconds after the app in docker-compose, so connection
+    failures are retried with a growing delay before falling back (loudly) to the local index."""
     local = LocalVectorIndex.build(texts, embedder.embed, embedder.name, settings.cache_dir)
-    if settings.database_url:
+    if not settings.database_url:
+        return local
+    for attempt in range(1, attempts + 1):
         try:
             return PgVectorIndex(settings.database_url, local.vectors)
-        except Exception:
-            return local
+        except Exception as e:
+            if attempt == attempts:
+                log.warning(
+                    "pgvector unavailable after %d attempts (%s: %s); using the local vector index",
+                    attempts, type(e).__name__, e,
+                )
+                break
+            log.info("pgvector not ready (attempt %d/%d): %s", attempt, attempts, e)
+            time.sleep(delay_s * attempt)
     return local

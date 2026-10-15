@@ -74,3 +74,9 @@ def test_falls_back_to_memory_when_redis_unreachable():
 
 def test_no_redis_url_uses_memory():
     assert build_cache(Settings(redis_url=None), "ns").backend == "memory"
+
+
+def test_redis_fallback_is_logged(caplog):
+    with caplog.at_level("WARNING", logger="aegis.cache"):
+        build_cache(Settings(redis_url="redis://127.0.0.1:1/0"), "ns")
+    assert "using the in-memory semantic cache" in caplog.text
