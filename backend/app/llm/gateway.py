@@ -91,6 +91,8 @@ class RaceRun:
     created: float = field(default_factory=time.monotonic)
     degraded: bool = False
     degraded_reason: str | None = None
+    owner: str | None = None  # client key that created the run; only it may join
+    sides: set[str] = field(default_factory=set)  # sides already served; each side may use a run once
     _notified: set[str] = field(default_factory=set)
 
     def degrade(self, reason: str) -> None:
@@ -159,13 +161,22 @@ class LLMGateway:
             return "demo", "no_key"
         return "live", None
 
-    def run_for(self, race_id: str | None, client_key: str = "anon", force_demo: bool = False) -> RaceRun:
-        """Return the RaceRun for `race_id`, creating it (and deciding the provider) on first use."""
+    def run_for(
+        self, race_id: str | None, client_key: str = "anon", force_demo: bool = False, side: str | None = None
+    ) -> RaceRun:
+        """Return the RaceRun for `race_id`, creating it (and deciding the provider) on first use.
+
+        A run is shared only by the client that created it and only once per side. Anything else (another client
+        guessing the id, or the same client replaying the id for extra requests) gets its own run that is charged
+        against the live budget, so a race_id can neither dodge nor borrow the per-client live budget."""
         now = time.monotonic()
         for rid in [r for r, run in self._runs.items() if now - run.created > self.settings.race_ttl_s]:
             del self._runs[rid]
-        if race_id and race_id in self._runs:
-            return self._runs[race_id]
+        existing = self._runs.get(race_id) if race_id else None
+        if existing and existing.owner == client_key and (side is None or side not in existing.sides):
+            if side:
+                existing.sides.add(side)
+            return existing
         mode, reason = self.mode(force_demo)
         if mode == "live" and not self._budget.take(client_key):
             mode, reason = "demo", "live_budget"
@@ -174,8 +185,10 @@ class LLMGateway:
             provider="groq" if mode == "live" else "simulator",
             reason=reason,
             sem=asyncio.Semaphore(self.settings.groq_concurrency),
+            owner=client_key,
+            sides={side} if side else set(),
         )
-        if race_id:
+        if race_id and existing is None:  # never displace another client's run
             self._runs[race_id] = run
             while len(self._runs) > self.settings.race_registry_max:
                 self._runs.popitem(last=False)

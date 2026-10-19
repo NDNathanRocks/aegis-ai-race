@@ -38,7 +38,7 @@ async def race(side: Literal["naive", "engineered"], body: RaceRequest, request:
     if retry_after is not None:
         raise HTTPException(429, "Rate limit exceeded", headers={"Retry-After": str(int(retry_after) + 1)})
     # The provider for the whole race is decided here, once, by whichever side arrives first.
-    run = ctx.llm.run_for(body.race_id, key, body.force_demo)
+    run = ctx.llm.run_for(body.race_id, key, body.force_demo, side)
     em = Emitter(side)
     runner = run_naive if side == "naive" else run_engineered
     return StreamingResponse(

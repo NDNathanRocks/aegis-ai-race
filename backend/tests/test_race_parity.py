@@ -151,3 +151,22 @@ def test_token_bucket_queues_instead_of_failing():
     assert done(first)["mode"] == "live"
     queued = [s for s in by_type(second, "status") if s["phase"] == "queued"]
     assert queued and queued[0]["wait_ms"] > 0 and done(second)["mode"] == "live"
+
+
+def test_race_id_cannot_dodge_or_borrow_the_live_budget():
+    from app.config import Settings
+    from app.llm.gateway import LLMGateway
+
+    gw = LLMGateway(Settings(groq_api_key="gsk_TEST_x", rate_limit_live_per_min=2))
+    a = gw.run_for("race-aaaaaaaa", "client-a", False, "naive")
+    assert a.provider == "groq"
+    # the sibling side of the same client shares the run
+    assert gw.run_for("race-aaaaaaaa", "client-a", False, "engineered") is a
+    # replaying the id for a third request does not reuse the run: it is a fresh, budget-charged one
+    replay = gw.run_for("race-aaaaaaaa", "client-a", False, "naive")
+    assert replay is not a and replay.provider == "groq"
+    # budget (2) is now spent, so further replays degrade to the simulator instead of going live for free
+    assert gw.run_for("race-aaaaaaaa", "client-a", False, "naive").provider == "simulator"
+    # another client presenting the same id never joins client-a's run
+    other = gw.run_for("race-aaaaaaaa", "client-b", False, "naive")
+    assert other is not a
