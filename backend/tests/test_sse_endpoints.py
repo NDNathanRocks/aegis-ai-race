@@ -1,4 +1,5 @@
 import asyncio
+import json
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -32,7 +33,7 @@ def race(client, side, query="What is the on-call stipend?", **extra):
 
 # --- REST -----------------------------------------------------------------------------------------
 def test_health_config_presets(client):
-    assert client.get("/api/health").json() == {"status": "ok"}
+    assert client.get("/api/health").json() == {"status": "ok", "ready": True}
     cfg = client.get("/api/config").json()
     assert cfg["mode"] == "demo" and cfg["cache_backend"] == "memory" and cfg["cache_threshold"] == 0.92
     presets = client.get("/api/presets").json()
@@ -41,8 +42,9 @@ def test_health_config_presets(client):
 
 
 def test_knowledge_base_drawer_endpoints(client):
-    docs = client.get("/api/kb/documents").json()
-    assert len(docs) == 6
+    docs = client.get("/api/kb/documents").json()  # legacy route = the B2B knowledge base
+    manifest = json.loads((client.app.state.ctx.settings.corpus_dir / "b2b_sla" / "manifest.json").read_text("utf-8"))
+    assert len(docs) == len(manifest["documents"])
     full = client.get(f"/api/kb/documents/{docs[0]['id']}").json()
     assert full["text"].startswith("# ")
     assert client.get("/api/kb/documents/nope").status_code == 404
@@ -123,22 +125,24 @@ def test_concurrent_race_streams_do_not_interfere(client):
 
 # --- resilience ---------------------------------------------------------------------------------------
 def test_live_failure_mid_stream_emits_fallback_and_still_completes():
-    with TestClient(create_app(hashing_settings(groq_api_key="k"))) as c:
+    cfg = hashing_settings(groq_api_key="k", groq_backoff_base_s=0.0, groq_stagger_ms=0, groq_max_retries=1)
+    with TestClient(create_app(cfg)) as c:
         c.app.state.ctx.llm.groq = _FailAfter(2, "rate_limited")
-        _, ev = race(c, "naive", "anything at all")
+        _, ev = race(c, "naive", "anything at all", race_id="race-sse-fail-01")
         names = [e for e, _ in ev]
         assert ev[0][1]["mode"] == "live"
         fb = [d for e, d in ev if e == "fallback"]
         assert fb == [{**fb[0]}] and fb[0]["reason"] == "rate_limited" and fb[0]["switched_to"] == "demo"
         assert any(d["reset"] for e, d in ev if e == "token")
-        assert names[-1] == "done" and ev[-1][1]["mode"] == "demo"
+        assert names[-1] == "done" and ev[-1][1]["mode"] == "demo" and ev[-1][1]["degraded"] is True
+        assert [d["degraded"] for e, d in ev if e == "race_state"][-1] is True
 
 
 def test_internal_failure_yields_terminal_error_event(client, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("index exploded")
 
-    monkeypatch.setattr(client.app.state.ctx.retriever, "retrieve", boom)
+    monkeypatch.setattr(client.app.state.ctx.domains["b2b_sla"].retriever, "retrieve", boom)
     _, ev = race(client, "engineered", "What is the on-call stipend?", session_id="boom-session")
     assert ev[-1][0] == "error" and ev[-1][1]["code"] == "internal_error" and "index exploded" in ev[-1][1]["message"]
 

@@ -3,17 +3,20 @@
 @tailwind utilities;
 
 :root {
-  --bg: 9 11 17;
-  --panel: 16 19 28;
-  --raised: 24 28 40;
-  --line: 40 46 64;
-  --ink: 232 236 244;
-  --mute: 148 158 178;
-  --naive: 251 146 60;
-  --eng: 52 211 153;
-  --warn: 250 204 21;
-  --bad: 248 113 113;
-  --good: 74 222 128;
+  /* Precision Observatory (plan.md A.3). Space-separated RGB triplets so Tailwind can apply alpha. */
+  --bg: 9 10 15; /* #090A0F */
+  --panel: 14 16 23; /* #0E1017 */
+  --raised: 18 21 30; /* #12151E */
+  --line: 30 34 48; /* #1E2230 */
+  --line-strong: 42 48 66; /* #2A3042 */
+  --ink: 230 232 239; /* #E6E8EF */
+  --mute: 139 146 165; /* #8B92A5 */
+  --faint: 91 98 117; /* #5B6275 */
+  --naive: 224 164 88; /* #E0A458 muted amber */
+  --eng: 91 197 167; /* #5BC5A7 muted teal */
+  --good: 76 175 125; /* #4CAF7D */
+  --warn: 212 167 44; /* #D4A72C */
+  --bad: 229 72 77; /* #E5484D */
   --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Code", ui-monospace, SFMono-Regular, Menlo, monospace;
   color-scheme: dark;
@@ -27,7 +30,9 @@ body {
 }
 
 body {
+  font-size: 14px;
   min-height: 100vh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -39,7 +44,7 @@ html[data-embed="true"] body {
 }
 
 ::selection {
-  background: rgb(var(--eng) / 0.3);
+  background: rgb(var(--eng) / 0.25);
 }
 
 .scroll-thin {
@@ -71,4 +76,15 @@ html[data-embed="true"] body {
   vertical-align: text-bottom;
   background: currentColor;
   animation: caret 1s steps(1) infinite;
+}
+
+/* Every number is tabular so counters never jitter. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 1px solid rgb(var(--eng));
+  outline-offset: 2px;
 }

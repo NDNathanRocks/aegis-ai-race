@@ -13,7 +13,7 @@ function naiveDone(ms: number, cost: number): NaiveRun {
       event: "done",
       data: {
         ...common, total_ms: ms, cache_hit: false, hallucination_prevented: false, mode: "demo",
-        usage: { prompt_tokens: 1, completion_tokens: 1, tier: "70b", cost_usd: cost },
+        usage: { prompt_tokens: 1, completion_tokens: 1, tier: "70b", cost_usd: cost, source: "estimate" },
       },
     },
   });
@@ -25,7 +25,7 @@ function engDone(ms: number, cost: number, prevented: boolean): EngineeredRun {
       event: "done",
       data: {
         ...common, side: "engineered", total_ms: ms, cache_hit: false, hallucination_prevented: prevented, mode: "demo",
-        usage: { prompt_tokens: 1, completion_tokens: 1, tier: "8b", cost_usd: cost },
+        usage: { prompt_tokens: 1, completion_tokens: 1, tier: "8b", cost_usd: cost, source: "estimate" },
       },
     },
   });

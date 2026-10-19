@@ -10,7 +10,7 @@ export function Scoreboard({ board, onReset }: { board: Board; onReset: () => vo
   return (
     <div
       aria-label="Cumulative scoreboard"
-      className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-line bg-raised px-4 py-2.5 sm:grid-cols-4"
+      className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg border border-line bg-raised px-4 py-2.5 sm:grid-cols-4"
     >
       <Stat
         label="Total latency saved"
@@ -26,11 +26,11 @@ export function Scoreboard({ board, onReset }: { board: Board; onReset: () => vo
       </div>
       <Stat label="Hallucinations prevented" value={board.hallucinationsPrevented} tone={board.hallucinationsPrevented ? "good" : undefined} />
       <div className="flex items-end justify-between gap-2">
-        <Stat label="Races run" value={board.races} />
+        <Stat label="Races counted" value={board.races} />
         <button
           onClick={onReset}
           disabled={board.races === 0}
-          className="rounded-md px-2 py-1.5 text-[11px] text-mute underline-offset-2 hover:text-ink hover:underline disabled:opacity-30"
+          className="min-h-[44px] rounded px-2 text-[11px] text-mute underline-offset-2 hover:text-ink hover:underline disabled:opacity-30"
         >
           reset
         </button>

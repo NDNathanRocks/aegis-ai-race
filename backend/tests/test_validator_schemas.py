@@ -69,5 +69,10 @@ def test_race_request_validation():
         RaceRequest(query="x" * 2001)
     with pytest.raises(ValidationError):
         RaceRequest(query="ok", session_id="bad id!")
+    # preset_id is validated against the requested domain's presets in the API (422), not in the schema.
     with pytest.raises(ValidationError):
-        RaceRequest(query="ok", preset_id="nope")
+        RaceRequest(query="ok", preset_id="Not A Valid Id!")
+    with pytest.raises(ValidationError):
+        RaceRequest(query="ok", domain="finance")
+    with pytest.raises(ValidationError):
+        RaceRequest(query="ok", model_mode="llama-3.3-70b-versatile")

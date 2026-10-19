@@ -1,4 +1,5 @@
-"""Shared LLM token streaming: batching (<= ~30 frames/s), running cost, fallback signalling."""
+"""Shared LLM token streaming: batching (<= ~30 frames/s), running cost, payload/status/race_state events,
+real (provider) usage with per-attempt accounting."""
 import asyncio
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -6,26 +7,53 @@ from typing import Any
 
 from app.cost import cost_usd, estimate_tokens, make_usage
 from app.deps import AppContext
-from app.llm.base import LLMRequest, Reset, build_messages
-from app.schemas import TokenUsage
+from app.llm.base import LLMRequest, RaceStateChange, Reset, Status, Usage, build_payload
+from app.llm.gateway import RaceRun
+from app.schemas import RetrievedChunk, TokenUsage
 from app.sse import Emitter
 
 Emit = Callable[..., Awaitable[None]]
 FLUSH_INTERVAL_S = 0.033
 
 
+async def emit_race_state(emit: Emit, state: RaceStateChange) -> None:
+    await emit("race_state", degraded=state.degraded, reason=state.reason, provider=state.provider)
+
+
 async def stream_tokens(
-    ctx: AppContext, req: LLMRequest, emit: Emit, *, force_demo: bool, reset_first: bool = False
+    ctx: AppContext,
+    run: RaceRun,
+    req: LLMRequest,
+    emit: Emit,
+    *,
+    reset_first: bool = False,
+    chunks: list[RetrievedChunk] | None = None,
 ) -> tuple[str, TokenUsage, str | None]:
-    """Run one LLM call, emitting `token` events. Returns (text, usage, fallback_reason)."""
-    prompt_tokens = sum(estimate_tokens(m["content"]) for m in build_messages(req))
-    usd_per_m = ctx.settings.enterprise_usd_per_million
+    """Run one LLM call, emitting `payload` then `token` events. Returns (text, usage, fallback_reason).
+
+    `usage` is the provider's count for this attempt when Groq answered (source="provider"), otherwise an
+    estimate (source="estimate"). If the call restarted (Reset), only the final successful attempt is counted.
+    """
+    s = ctx.settings
+    messages, composition = build_payload(req)
+    prompt_est = sum(estimate_tokens(m["content"]) for m in messages)
+    model = ctx.llm.model_name(req)
+    payload: dict[str, Any] = dict(
+        attempt=req.attempt, model=model, messages=messages, token_count=prompt_est, token_source="estimate",
+        composition=composition,
+    )
+    if chunks is not None:
+        payload["chunks"] = [c.model_dump() for c in chunks]
+    await emit("payload", **payload)
+
+    usd_per_m, ratio = s.enterprise_usd_per_million, s.cost_ratio_8b
     fallbacks: list[str] = []
     req.on_fallback = fallbacks.append
     text, buffer = "", ""
     reset_pending = reset_first
     fallback_sent = False
     last_flush = 0.0
+    final: Usage | None = None
 
     async def flush() -> None:
         nonlocal buffer, reset_pending, last_flush
@@ -36,9 +64,9 @@ async def stream_tokens(
             "token",
             text=buffer,
             reset=reset_pending,
-            prompt_tokens=prompt_tokens,
+            prompt_tokens=prompt_est,
             completion_tokens=completion,
-            cost_usd=cost_usd(prompt_tokens + completion, req.tier, usd_per_m),
+            cost_usd=cost_usd(prompt_est + completion, req.tier, usd_per_m, ratio),
         )
         buffer, reset_pending, last_flush = "", False, time.monotonic()
 
@@ -48,19 +76,38 @@ async def stream_tokens(
             fallback_sent = True
             await emit("fallback", reason=fallbacks[0], switched_to="demo")
 
-    async for piece in ctx.llm.stream(req, force_demo):
+    stream: AsyncIterator[Any] = ctx.llm.stream(run, req)
+    async for piece in stream:
         await announce_fallback()
-        if isinstance(piece, Reset):
-            text, buffer, reset_pending = "", "", True
+        if isinstance(piece, Status):
             await flush()
-            continue
-        text += piece
-        buffer += piece
-        if time.monotonic() - last_flush >= FLUSH_INTERVAL_S:
+            await emit("status", phase=piece.phase, detail=piece.detail, wait_ms=piece.wait_ms)
+        elif isinstance(piece, RaceStateChange):
             await flush()
+            await emit_race_state(emit, piece)
+        elif isinstance(piece, Usage):
+            final = piece
+        elif isinstance(piece, Reset):
+            text, buffer, reset_pending, final = "", "", True, None
+            await flush()
+        else:
+            text += piece
+            buffer += piece
+            if time.monotonic() - last_flush >= FLUSH_INTERVAL_S:
+                await flush()
     await announce_fallback()
     await flush()
-    return text, make_usage(prompt_tokens, estimate_tokens(text), req.tier, usd_per_m), (fallbacks[0] if fallbacks else None)
+    if final is not None:
+        usage = make_usage(final.prompt_tokens, final.completion_tokens, req.tier, usd_per_m, final.source, ratio)
+    else:
+        usage = make_usage(prompt_est, estimate_tokens(text), req.tier, usd_per_m, "estimate", ratio)
+    return text, usage, (fallbacks[0] if fallbacks else None)
+
+
+async def sync_race_state(run: RaceRun, side: str, emit: Emit) -> None:
+    """Make sure this side has told the client about a degraded race (e.g. the sibling gave up first)."""
+    if run.degraded and run.take_notification(side):
+        await emit_race_state(emit, run.state_event())
 
 
 class EventPump:

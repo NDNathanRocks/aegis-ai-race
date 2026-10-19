@@ -12,3 +12,5 @@
 
 ## 3. Post-Change Verification
 After deployment, verify health checks for 30 minutes. If error rate exceeds 2% above baseline, roll back automatically.
+
+*Demo knowledge base; not legal, tax or medical advice.*

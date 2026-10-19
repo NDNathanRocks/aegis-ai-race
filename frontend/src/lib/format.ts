@@ -25,3 +25,12 @@ export function fmtSigned(ms: number): string {
 export function money(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
+
+/** Token count; provider-counted tokens are exact, estimates get a "~" prefix. */
+export function fmtTokens(n: number, source: "provider" | "estimate" | null): string {
+  return `${source === "estimate" ? "~" : ""}${n.toLocaleString("en-US")}`;
+}
+
+export function cad(n: number): string {
+  return n.toLocaleString("en-CA", { style: "currency", currency: "CAD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}

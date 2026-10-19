@@ -19,6 +19,8 @@ export const emptyScoreboard = (): Scoreboard => ({
  * hallucination trap spends more tokens on the engineered side (retrieval + a critic retry) to get a correct answer.
  */
 export function addRace(board: Scoreboard, naive: NaiveRun, eng: EngineeredRun): Scoreboard {
+  // Degraded races (Groq failed, both sides fell back to the simulator) are not apples-to-apples: never counted.
+  if (naive.degraded || eng.degraded) return board;
   if (naive.status !== "done" || eng.status !== "done" || naive.totalMs === null || eng.totalMs === null) {
     return board;
   }

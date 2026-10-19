@@ -1,16 +1,16 @@
 """Application context (shared singletons) and the per-IP rate limiter."""
+import hashlib
 import time
 from collections import OrderedDict, deque
 from dataclasses import dataclass, field
 
 import numpy as np
 
+from app import domains as dom
 from app.config import Settings
-from app.llm.factory import ResilientLLM
+from app.llm.gateway import LLMGateway
 from app.rag.cache import SemanticCache, build_cache
-from app.rag.corpus import Chunk, corpus_version, load_chunks
 from app.rag.embeddings import Embedder, get_embedder
-from app.rag.hybrid import HybridRetriever, build_retriever
 
 MAX_SESSIONS = 256
 
@@ -29,27 +29,36 @@ _SIMPLE_PROTOTYPES = [
 class AppContext:
     settings: Settings
     embedder: Embedder
-    chunks: list[Chunk]
-    retriever: HybridRetriever
-    llm: ResilientLLM
+    domains: dict[str, dom.DomainRuntime]
+    llm: LLMGateway
     version: str
-    _caches: OrderedDict[str, SemanticCache] = field(default_factory=OrderedDict)
+    _caches: OrderedDict[tuple[str, str], SemanticCache] = field(default_factory=OrderedDict)
     _protos: tuple[np.ndarray, np.ndarray] | None = None
 
-    def cache_for(self, session_id: str | None) -> SemanticCache:
-        """Per-session semantic cache so one visitor's demo never pre-warms another's."""
-        key = session_id or "global"
+    def runtime(self, domain: str) -> dom.DomainRuntime:
+        try:
+            return self.domains[domain]
+        except KeyError:
+            raise KeyError(f"domain {domain!r} is not loaded") from None
+
+    def cache_for(self, session_id: str | None, domain: str = "b2b_sla") -> SemanticCache:
+        """Per-(domain, session) semantic cache: namespace `version:domain:session`, so one visitor's demo never
+        pre-warms another's and a cached card never crosses knowledge bases."""
+        key = (domain, session_id or "global")
         if key in self._caches:
             self._caches.move_to_end(key)
             return self._caches[key]
-        cache = build_cache(self.settings, f"{self.version}:{key}")
+        cache = build_cache(self.settings, f"{self.version}:{domain}:{key[1]}")
         self._caches[key] = cache
-        while len(self._caches) > MAX_SESSIONS:
+        while len(self._caches) > MAX_SESSIONS * 4:
             self._caches.popitem(last=False)
         return cache
 
     def reset_cache(self, session_id: str | None) -> None:
-        self.cache_for(session_id).clear()
+        """Clear the session's cache in every domain."""
+        sid = session_id or "global"
+        for d in list(self.domains) or ["b2b_sla"]:
+            self.cache_for(sid, d).clear()
 
     def prototypes(self) -> tuple[np.ndarray, np.ndarray]:
         if self._protos is None:
@@ -62,9 +71,12 @@ class AppContext:
 
 def build_context(settings: Settings) -> AppContext:
     embedder = get_embedder(settings.embedding_backend, settings.embedding_model)
-    chunks = load_chunks(settings.corpus_dir)
-    retriever = build_retriever(settings, embedder, chunks)
-    ctx = AppContext(settings, embedder, chunks, retriever, ResilientLLM(settings), corpus_version(settings.corpus_dir))
+    domains = dom.build_domains(settings, embedder)
+    h = hashlib.sha256()
+    for d in sorted(domains):
+        h.update(d.encode())
+        h.update(domains[d].spec.kb_text.encode())
+    ctx = AppContext(settings, embedder, domains, LLMGateway(settings), h.hexdigest()[:12])
     ctx.prototypes()  # warm
     return ctx
 

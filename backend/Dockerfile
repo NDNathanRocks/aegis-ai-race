@@ -10,12 +10,17 @@ RUN python -c "import tomllib; p = tomllib.load(open('pyproject.toml','rb'))['pr
  && /opt/venv/bin/pip install -r requirements.txt
 # Bake bge-small-en-v1.5 (ONNX) into the image: no network access or cold-start download at runtime.
 RUN /opt/venv/bin/python -c "from fastembed import TextEmbedding; TextEmbedding('BAAI/bge-small-en-v1.5')"
+# Bake the per-domain chunk vectors (index-<hash>.npy) so a cold container never embeds the corpus at 0.1 vCPU.
+COPY app ./app
+COPY data ./data
+RUN OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 HF_HUB_OFFLINE=1 /opt/venv/bin/python -m app.rag.prebuild --cache-dir /opt/index-cache
 
 # ---- runtime ----------------------------------------------------------------------------------------------------
 FROM python:3.12-slim AS runtime
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     FASTEMBED_CACHE_PATH=/opt/fastembed \
+    OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
     HF_HUB_OFFLINE=1 \
     PORT=8000
 RUN useradd --create-home --uid 1000 app
@@ -24,10 +29,13 @@ COPY --from=builder /opt/venv /opt/venv
 COPY --from=builder /opt/fastembed /opt/fastembed
 COPY app ./app
 COPY data ./data
+COPY --from=builder /opt/index-cache /app/.cache
 RUN mkdir -p /app/.cache && chown -R app:app /app /opt/fastembed
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \
   CMD python -c "import os,urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\",\"8000\")}/api/health', timeout=3)"
 # Single worker: the semantic cache and rate limiter are per-process. Scale out with Redis (REDIS_URL).
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]
+# uvicorn's own proxy handling is off: it would trust any X-Forwarded-For. app.api.race.client_key honours the header
+# only when TRUST_PROXY=1 (set it on Render/HF behind their proxy; TRUSTED_PROXY_HOPS=1) and takes the right-most hop.
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --no-proxy-headers"]

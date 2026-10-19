@@ -5,6 +5,8 @@ os.environ["EMBEDDING_BACKEND"] = "hashing"
 os.environ["GROQ_API_KEY"] = ""
 os.environ["REDIS_URL"] = ""
 os.environ["DATABASE_URL"] = ""
+os.environ["GROQ_HEAVY_MODEL"] = "llama-3.3-70b-versatile"  # tests must not depend on a developer .env
+os.environ["GROQ_FAST_MODEL"] = "llama-3.1-8b-instant"
 
 import pytest  # noqa: E402
 

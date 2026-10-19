@@ -1,0 +1,47 @@
+{
+  "version": "1",
+  "documents": [
+    {
+      "id": "appr_compensation_schedule",
+      "title": "APPR Delay Compensation Schedule",
+      "category": "Regulation",
+      "source_note": "regulation-paraphrase (APPR large/small carrier bands; verify against the CTA)"
+    },
+    {
+      "id": "baggage_fee_refund_and_delay",
+      "title": "Air Canada Checked Baggage Delay and Fee Refund",
+      "category": "Carrier Policy",
+      "source_note": "synthetic simplification for the demo (24-hour threshold and 21-day limit are not verified tariff text)"
+    },
+    {
+      "id": "star_alliance_gold_baggage",
+      "title": "Air Canada Star Alliance Gold Baggage Allowance",
+      "category": "Carrier Policy",
+      "source_note": "approximate paraphrase of the public allowance; verify the current Air Canada tariff"
+    },
+    {
+      "id": "eu261_summary",
+      "title": "EU261 Summary (conflicting regime)",
+      "category": "Distractor",
+      "source_note": "regulation-paraphrase; deliberately conflicting with APPR"
+    },
+    {
+      "id": "outdated_2019_promo_voucher",
+      "title": "2019 Goodwill Voucher Promotion (expired)",
+      "category": "Distractor",
+      "source_note": "synthetic expired promotion"
+    },
+    {
+      "id": "aeroplan_status_and_lounges",
+      "title": "Air Canada Aeroplan Status, Lounges and Upgrades",
+      "category": "Carrier Policy",
+      "source_note": "synthetic summary; not verified against current Aeroplan terms"
+    },
+    {
+      "id": "fare_families_and_changes",
+      "title": "Air Canada Fare Families and Ticket Changes",
+      "category": "Carrier Policy",
+      "source_note": "synthetic summary; not verified against current fare rules"
+    }
+  ]
+}

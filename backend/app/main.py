@@ -14,9 +14,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # Loads the ONNX model and builds/loads the vector index before serving traffic.
+        # Loads the ONNX model, builds/loads per-domain vector indexes and pre-populates the query caches
+        # (build_domains warms every preset query/paraphrase) before serving traffic; /api/health reports `ready`.
+        app.state.ready = False
         app.state.ctx = await asyncio.to_thread(build_context, settings)
         app.state.limiter = RateLimiter(settings.rate_limit_per_min)
+        app.state.ready = True
         yield
 
     app = FastAPI(title="Aegis: Naive AI vs Engineered AI", version="0.1.0", lifespan=lifespan)

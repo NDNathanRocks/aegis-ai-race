@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { fmtMs, fmtUsd } from "@/lib/format";
+import { fmtMs, fmtTokens, fmtUsd } from "@/lib/format";
 import type { EngineeredRun, NodeState, NodeStatus } from "@/lib/reducer";
 import { ModeBadge } from "./ModeBadge";
 import { PipelineNode } from "./PipelineNode";
 import { ResultCard } from "./ResultCard";
-import { Badge, MeterBar, SectionLabel, Stat } from "./ui";
+import { Badge, MeterBar, SectionLabel, Stat, StatusHint } from "./ui";
+import { InspectButton } from "./PayloadDrawer";
 
 const TIER_THRESHOLD = 0.5;
 
@@ -40,7 +41,7 @@ function RouterBody({ run }: { run: EngineeredRun }) {
           <span className="font-mono">{r.complexity_score.toFixed(2)}</span>
         </div>
         <div className="relative h-2 rounded-full bg-line/70">
-          <div className="h-full rounded-full bg-gradient-to-r from-eng to-warn" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-eng" style={{ width: `${pct}%` }} />
           <span
             aria-hidden
             title="Tier threshold: at or above this, route to the heavy model"
@@ -171,7 +172,7 @@ function GeneratorBody({ run }: { run: EngineeredRun }) {
             role="tab"
             aria-selected={active === t.id}
             onClick={() => setTab(t.id)}
-            className={`-mb-px border-b-2 px-2.5 py-1.5 text-xs transition-colors ${
+            className={`-mb-px border-b-2 min-h-[44px] px-3 text-xs transition-colors ${
               active === t.id ? "border-eng text-ink" : "border-transparent text-mute hover:text-ink"
             }`}
           >
@@ -251,7 +252,17 @@ function CriticBody({ run }: { run: EngineeredRun }) {
   );
 }
 
-export function EngineeredPanel({ run, elapsedMs }: { run: EngineeredRun; elapsedMs: number | null }) {
+export function EngineeredPanel({
+  run,
+  elapsedMs,
+  inspectOpen,
+  onInspect,
+}: {
+  run: EngineeredRun;
+  elapsedMs: number | null;
+  inspectOpen: boolean;
+  onInspect: () => void;
+}) {
   const n: Record<string, NodeState> = run.nodes;
   const gen = combinedGeneratorStage(run);
   const critic = criticStage(run);
@@ -265,15 +276,18 @@ export function EngineeredPanel({ run, elapsedMs }: { run: EngineeredRun; elapse
           <h2 className="text-sm font-semibold text-eng">Engineered AI Platform</h2>
           <p className="text-[11px] text-mute">Router → Cache → Hybrid RAG → Generator → Critic → Validator</p>
         </div>
-        <ModeBadge mode={run.mode} reason={run.fallbackReason} />
+        <ModeBadge mode={run.mode} reason={run.fallbackReason} provider={run.provider} model={run.model} />
       </header>
+      <StatusHint hint={run.statusHint} />
 
       <div className="space-y-4 p-4">
-        <div className="grid grid-cols-3 gap-3 rounded-xl border border-line bg-raised px-3 py-2.5">
+        <div className="grid grid-cols-3 gap-3 rounded-lg border border-line bg-raised px-3 py-2.5">
           <Stat label="Elapsed" value={fmtMs(elapsedMs)} tone={run.cacheHit ? "good" : undefined} />
-          <Stat label="Tokens (est.)" value={(run.promptTokens + run.completionTokens).toLocaleString()} />
+          <Stat label="Tokens" value={fmtTokens(run.promptTokens + run.completionTokens, run.tokenSource)} />
           <Stat label="Cost @ $15/1M" value={fmtUsd(run.costUsd)} tone={run.cacheHit ? "good" : undefined} />
         </div>
+
+        <InspectButton side="engineered" available={run.payloads.length > 0} open={inspectOpen} onClick={onInspect} />
 
         <ol aria-label="Pipeline">
           <PipelineNode

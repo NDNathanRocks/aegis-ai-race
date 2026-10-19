@@ -4,7 +4,11 @@ import numpy as np
 from rank_bm25 import BM25Okapi
 
 _TOKEN = re.compile(r"[a-z0-9]+(?:\.[0-9]+)?")
-_STOP = frozenset("a an the of to in on for and or is are be by with at as it this that from".split())
+_STOP = frozenset(
+    "a an the of to in on for and or is are be by with at as it this that from "
+    "i me my we our you your he his she her they their am was were been being do does did have has had will would "
+    "can could should may might if then than so also what which who whom how when where why".split()
+)
 
 
 def tokenize(text: str) -> list[str]:

@@ -6,12 +6,13 @@ import type { NodeStatus } from "@/lib/reducer";
 import { fmtMs } from "@/lib/format";
 import { Badge, StatusDot } from "./ui";
 
+// Literal colours (framer-motion cannot animate CSS-variable colours). Mirrors the tokens in globals.css.
 const BORDER: Record<NodeStatus, string> = {
-  idle: "rgb(var(--line))",
-  active: "rgb(var(--warn))",
-  done: "rgb(var(--eng) / 0.55)",
-  skipped: "rgb(var(--line))",
-  error: "rgb(var(--bad) / 0.7)",
+  idle: "rgb(30, 34, 48)",
+  active: "rgb(212, 167, 44)",
+  done: "rgba(91, 197, 167, 0.55)",
+  skipped: "rgb(30, 34, 48)",
+  error: "rgba(229, 72, 77, 0.7)",
 };
 
 export function PipelineNode({
@@ -43,7 +44,7 @@ export function PipelineNode({
             className="absolute inset-x-0 top-0 block bg-eng"
             initial={false}
             animate={{ height: status === "done" || status === "skipped" ? "100%" : "0%" }}
-            transition={{ duration: reduce ? 0 : 0.4 }}
+            transition={{ duration: reduce ? 0 : 0.18 }}
           />
         </span>
       )}
@@ -53,9 +54,8 @@ export function PipelineNode({
         initial={false}
         animate={{
           borderColor: BORDER[status],
-          scale: status === "active" && !reduce ? [1, 1.12, 1] : 1,
         }}
-        transition={{ duration: 0.9, repeat: status === "active" && !reduce ? Infinity : 0 }}
+        transition={{ duration: reduce ? 0 : 0.15 }}
       >
         {status === "done" ? <span className="text-eng">✓</span> : status === "error" ? <span className="text-bad">!</span> : index}
       </motion.span>
@@ -63,7 +63,7 @@ export function PipelineNode({
       <motion.div
         initial={false}
         animate={{ opacity: lit ? 1 : 0.55, borderColor: BORDER[status] }}
-        transition={{ duration: reduce ? 0 : 0.25 }}
+        transition={{ duration: reduce ? 0 : 0.15 }}
         className="mb-3 rounded-xl border bg-raised"
       >
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { fetchDocument, fetchDocuments } from "@/lib/api";
-import type { KbDocument, KbDocumentSummary } from "@/lib/types";
+import type { Domain, KbDocument, KbDocumentSummary } from "@/lib/types";
 import { Badge } from "./ui";
 
 function DocText({ text }: { text: string }) {
@@ -22,7 +22,9 @@ export function KnowledgeDrawer({
   open,
   onClose,
   retrievedDocIds,
+  domain,
 }: {
+  domain: Domain;
   open: boolean;
   onClose: () => void;
   retrievedDocIds: string[];
@@ -33,15 +35,22 @@ export function KnowledgeDrawer({
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    // Documents are domain-scoped: reset when the domain changes.
+    setDocs(null);
+    setSelected(null);
+    setError(null);
+  }, [domain]);
+
+  useEffect(() => {
     if (!open || docs) return;
     const ctl = new AbortController();
-    fetchDocuments(ctl.signal)
+    fetchDocuments(domain, ctl.signal)
       .then(setDocs)
       .catch((e: unknown) => {
         if (!ctl.signal.aborted) setError(e instanceof Error ? e.message : "Failed to load documents");
       });
     return () => ctl.abort();
-  }, [open, docs]);
+  }, [open, docs, domain]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +62,7 @@ export function KnowledgeDrawer({
 
   const select = (id: string) => {
     setError(null);
-    fetchDocument(id)
+    fetchDocument(domain, id)
       .then(setSelected)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load document"));
   };
@@ -68,7 +77,7 @@ export function KnowledgeDrawer({
         aria-label="Ground-truth knowledge base"
         aria-hidden={!open}
         inert={!open}
-        className={`fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l border-line bg-panel shadow-2xl transition-transform duration-300 ${
+        className={`fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l border-line bg-panel transition-transform duration-150 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -77,7 +86,7 @@ export function KnowledgeDrawer({
             <h2 className="text-sm font-semibold">Ground-Truth Knowledge Base</h2>
             <p className="text-[11px] text-mute">The corpus both sides are judged against</p>
           </div>
-          <button ref={closeRef} onClick={onClose} aria-label="Close knowledge base" className="rounded-md px-2 py-1 text-mute hover:text-ink">
+          <button ref={closeRef} onClick={onClose} aria-label="Close knowledge base" className="min-h-[44px] min-w-[44px] rounded text-mute hover:text-ink">
             ✕
           </button>
         </header>

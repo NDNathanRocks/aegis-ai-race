@@ -20,3 +20,5 @@
 
 ## 4. Escalation
 P1 incidents require an incident commander within 10 minutes and a customer status update every 30 minutes until resolved.
+
+*Demo knowledge base; not legal, tax or medical advice.*

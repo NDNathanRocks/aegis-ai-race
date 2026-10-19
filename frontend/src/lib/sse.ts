@@ -1,3 +1,4 @@
+import { MOCK, mockStreamRace } from "./mock";
 import { EVENT_NAMES, type RaceEvent, type RaceRequest, type Side } from "./types";
 
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/$/, "");
@@ -72,6 +73,7 @@ export async function streamRace(
   onEvent: (e: RaceEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
+  if (MOCK) return mockStreamRace(side, body, onEvent, signal);
   let resp: Response;
   try {
     resp = await fetch(`${API_URL}/api/race/${side}`, {

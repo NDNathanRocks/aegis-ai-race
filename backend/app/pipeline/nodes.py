@@ -11,18 +11,17 @@ from typing import Any, TypedDict
 import numpy as np
 from pydantic import ValidationError
 
-from app.deps import AppContext
 from app.eval.grounding import evaluate_grounding
 from app.eval.triad import score_triad
+from app.llm import simulator
 from app.llm.base import LLMRequest
 from app.pipeline import guardrails
+from app.pipeline.setup import RaceSetup, expected_text
 from app.pipeline.streaming import Emit, stream_tokens
-from app.presets import get_preset
 from app.schemas import (
     CARD_MODELS,
     CacheLookup,
     CriticVerdict,
-    RaceRequest,
     RetrievedChunk,
     RouterDecision,
     TriadScores,
@@ -34,11 +33,20 @@ TIER_THRESHOLD = 0.5
 
 _SIMPLE = re.compile(r"\b(classif\w*|categori[sz]e|label|tag|format|reformat|priority|triage|reset|summari[sz]e)\b", re.I)
 _REASONING = re.compile(
-    r"\b(audit|compare|calculat\w*|discrepanc\w*|reconcil\w*|why|explain|analy[sz]e|verify|every|derive|show)\b", re.I
+    r"\b(audit|compare|calculat\w*|discrepanc\w*|reconcil\w*|why|explain|analy[sz]e|verify|every|derive|show"
+    r"|penalt\w*|payout|owed|violations?)\b",
+    re.I,
 )
 _INVOICE = re.compile(r"\b(invoice|audit|billed|discrepanc\w*)\b", re.I)
 _TRIAGE = re.compile(r"\b(classif\w*|triage|ticket|priority)\b", re.I)
 _NUMBER = re.compile(r"\$?\d[\d,.]*%?")
+# Per-domain computational card: chosen when the (sanitised) question is a number-heavy audit/claim.
+_DOMAIN_CARD: dict[str, tuple[re.Pattern[str], str]] = {
+    "travel_appr": (re.compile(r"\b(appr|compensat\w*|payout|refund\w*|delayed?|owed)\b", re.I), "appr_claim"),
+    "bc_tenancy_cra": (re.compile(r"\b(rent|tfsa|cra|evict\w*|landlord|tenan\w*)\b", re.I), "tenancy_tax"),
+    "nutrition": (re.compile(r"\b(audit|calculat\w*|totals?|footlong|sandwich|order|violations?)\b", re.I), "nutrition_audit"),
+}
+SPECIAL_KINDS = {"invoice_audit", "appr_claim", "tenancy_tax", "nutrition_audit"}
 
 
 class State(TypedDict, total=False):
@@ -58,6 +66,7 @@ class State(TypedDict, total=False):
     schema_valid: bool
     prompt_tokens: int
     completion_tokens: int
+    usage_sources: list[str]
     fallback_reason: str | None
     triad: TriadScores
 
@@ -77,9 +86,10 @@ def _validation_messages(e: ValidationError) -> list[str]:
 
 
 class Nodes:
-    def __init__(self, ctx: AppContext, req: RaceRequest, emit: Emit):
-        self.ctx, self.req, self.emit = ctx, req, emit
-        self.preset = get_preset(req.preset_id)
+    def __init__(self, setup: RaceSetup, emit: Emit):
+        self.setup, self.ctx, self.req, self.emit = setup, setup.ctx, setup.req, emit
+        self.preset = setup.preset
+        self.run = setup.run
 
     async def _stage(self, name: str, fn, **extra: Any) -> dict[str, Any]:
         await self.emit("node_start", node=name, **extra)
@@ -107,16 +117,27 @@ class Nodes:
             simple = -0.2 if _SIMPLE.search(sanitized) else 0.0
             semantic = float(np.clip(0.5 + 1.5 * (float((proto_c @ qvec).max()) - float((proto_s @ qvec).max())), 0, 1)) * 0.3
             score = float(np.clip(length + keywords + numeric + simple + semantic, 0, 1))
-            tier = "70b" if score >= TIER_THRESHOLD else "8b"
+            would_pick = "70b" if score >= TIER_THRESHOLD else "8b"
+            mode_ = self.req.model_mode
+            tier = would_pick if mode_ == "auto" else mode_  # model parity: 70b / 8b force both sides to one model
 
+            domain_rx, domain_kind = _DOMAIN_CARD.get(self.req.domain, (None, None))
             if patterns:
                 kind = "secure_response"
-            elif _INVOICE.search(sanitized) and n_nums >= 2:
+            elif self.req.domain == "b2b_sla" and _INVOICE.search(sanitized) and n_nums >= 2:
                 kind = "invoice_audit"
-            elif _TRIAGE.search(sanitized):
+            elif domain_rx is not None and n_nums >= 2 and domain_rx.search(sanitized) and _REASONING.search(sanitized):
+                kind = domain_kind
+            elif self.req.domain == "b2b_sla" and _TRIAGE.search(sanitized):
                 kind = "triage"
             else:
                 kind = "faq"
+            if (
+                kind in SPECIAL_KINDS
+                and self.run.provider == "simulator"
+                and not simulator.can_build(kind, sanitized, self.req.preset_id, self.req.domain)
+            ):
+                kind = "faq"  # the demo simulator can only compute the hero scenarios; edited prompts get a FAQ card
             decision = RouterDecision(
                 complexity_score=round(score, 3),
                 tier=tier,
@@ -128,6 +149,7 @@ class Nodes:
                 reason=(
                     f"length {length:.2f} + reasoning {keywords:.2f} + numeric {numeric:.2f} "
                     f"+ simple-task {simple:.2f} + semantic {semantic:.2f}"
+                    + (f"; model_mode={mode_} forces {tier} (router alone would pick {would_pick})" if mode_ != "auto" else "")
                 ),
             )
             update = {
@@ -141,7 +163,7 @@ class Nodes:
     # ---- 2. Semantic cache ---------------------------------------------------------------
     async def semantic_cache(self, state: State) -> dict[str, Any]:
         async def work():
-            cache = self.ctx.cache_for(self.req.session_id)
+            cache = self.ctx.cache_for(self.req.session_id, self.req.domain)
             result = await asyncio.to_thread(cache.lookup, state["query_vec"])
             if result.hit and (result.value or {}).get("card", {}).get("kind") != state["router"].card_kind:
                 result.hit = False  # same wording, different task type: not a valid reuse
@@ -167,9 +189,10 @@ class Nodes:
     # ---- 3. Hybrid retriever -------------------------------------------------------------
     async def retriever(self, state: State) -> dict[str, Any]:
         async def work():
-            k = 4 if state["router"].tier == "70b" else 2
+            # k=2 only when the router itself chose the cheap tier; a user-forced model keeps full retrieval depth.
+            k = 4 if (state["router"].tier == "70b" or self.req.model_mode != "auto") else 2
             hits = await asyncio.to_thread(
-                self.ctx.retriever.retrieve, state["sanitized"], k, 10, "hybrid", state["query_vec"], True
+                self.setup.runtime.retriever.retrieve, state["sanitized"], k, 10, "hybrid", state["query_vec"], True
             )
             chunks = [
                 RetrievedChunk(
@@ -195,14 +218,17 @@ class Nodes:
                 role="generator", tier=router.tier, query=state["sanitized"], preset_id=self.req.preset_id,
                 card_kind=router.card_kind, chunks=state["chunks"], attempt=attempt,
                 feedback=state.get("feedback", []), injection_patterns=router.injection_patterns,
+                domain=self.req.domain, preset_kind=self.setup.preset_kind,
             )
             text, usage, fb = await stream_tokens(
-                self.ctx, llm_req, self.emit, force_demo=self.req.force_demo, reset_first=attempt > 0
+                self.ctx, self.run, llm_req, self.emit, reset_first=attempt > 0, chunks=state["chunks"]
             )
+            # Per-attempt accounting: a Critic retry adds its own (provider-counted when live) tokens.
             update = {
                 "draft": text,
                 "prompt_tokens": state.get("prompt_tokens", 0) + usage.prompt_tokens,
                 "completion_tokens": state.get("completion_tokens", 0) + usage.completion_tokens,
+                "usage_sources": [*state.get("usage_sources", []), usage.source],
                 "fallback_reason": fb or state.get("fallback_reason"),
             }
             return update, {"usage": usage.model_dump(), "model": router.model}, "ok"
@@ -225,6 +251,8 @@ class Nodes:
             faithfulness = 0.0
             if payload is not None:
                 context = "\n".join(c.text for c in state["chunks"])
+                # Calculator-derived figures (answer key) count as supported: "derivable", not only "quoted".
+                context += "\n" + expected_text(self.setup.expected)
                 g = evaluate_grounding(payload, context, state["sanitized"])
                 faithfulness, unsupported = g.faithfulness, g.unsupported
                 known = {c.chunk_id for c in state["chunks"]}
@@ -275,13 +303,13 @@ class Nodes:
             else:
                 triad = score_triad(
                     query=state["sanitized"], chunks=chunks, faithfulness=state.get("faithfulness", 0.0),
-                    unsupported=state.get("unsupported", []), schema_valid=valid, preset=self.preset,
+                    unsupported=state.get("unsupported", []), schema_valid=valid, preset=self.setup.facts(),
                 )
             if valid:
                 await self.emit("card", card=card, raw_json=raw_json)
                 critic_ok = state["critic"].passed
                 if not cache_hit and critic_ok:
-                    cache = self.ctx.cache_for(self.req.session_id)
+                    cache = self.ctx.cache_for(self.req.session_id, self.req.domain)
                     await asyncio.to_thread(
                         cache.store, state["sanitized"], state["query_vec"], {"card": card, "eval": triad.model_dump()}
                     )

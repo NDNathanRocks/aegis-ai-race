@@ -10,9 +10,11 @@ import asyncio
 import json
 import re
 from collections.abc import AsyncIterator
+from decimal import Decimal
 
 from app.eval.grounding import _content_tokens
 from app.llm.base import LLMRequest, Reset
+from app.llm.naive_scripts import DOMAIN_NAIVE
 from app.schemas import RetrievedChunk
 
 NAIVE_SCRIPTS: dict[str, str] = {
@@ -50,6 +52,7 @@ GENERIC_NAIVE = (
     "your internal documentation to confirm the exact numbers, as practices vary widely between companies."
 )
 
+
 _LEAD = re.compile(r"^(?:[-*]\s+|\d+(?:\.\d+)*\s+)")
 _SENT = re.compile(r"(?<=[.!?])\s+")
 
@@ -59,9 +62,28 @@ def _body_lines(chunk: RetrievedChunk) -> list[str]:
     return [_LEAD.sub("", ln).strip() for ln in lines if ln.strip()]
 
 
+_FORMAT_HINT = re.compile(r"(?i)\b(answer|reply|respond)\b[^.?!]*[.?!]?|\bin one (line|sentence|word)\b:?")
+_LOOKUP = re.compile(r"\b(how (many|much|long|often)|allowance|limit|rate|which form|what form|notice|per)\b", re.I)
+_HAS_NUMBER = re.compile(r"\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|twelve)\b", re.I)
+
+
+def _stem(t: str) -> str:
+    t = t[:-1] if t.endswith("s") and len(t) > 3 else t
+    return t[:-3] if t.endswith("age") and len(t) > 5 else t  # bags ~ baggage
+
+
+def _overlap(q: set[str], toks: set[str]) -> int:
+    st = {_stem(t) for t in toks}
+    return sum(1 for w in q if any(w == t or (min(len(w), len(t)) >= 3 and (w.startswith(t) or t.startswith(w))) for t in st))
+
+
 def best_sentences(query: str, chunks: list[RetrievedChunk], n: int = 1) -> list[tuple[str, str]]:
-    """Pick the n body sentences with the most content-word overlap with the query: (text, chunk_id)."""
-    q = _content_tokens(re.sub(r"[\d$%,.]+", " ", query))
+    """Pick the n body sentences with the most content-word overlap with the query: (text, chunk_id).
+
+    Lookup-style questions ("how many ...", "allowance", "notice") prefer short sentences that state a number."""
+    query = _FORMAT_HINT.sub(" ", query)  # "Answer in one line." tells the model how to answer, not what to look up
+    q = {_stem(t) for t in _content_tokens(re.sub(r"[\d$%,.]+", " ", query))}
+    lookup = bool(_LOOKUP.search(query))
     scored: list[tuple[float, int, str, str]] = []
     for ci, c in enumerate(chunks):
         for line in _body_lines(c):
@@ -69,8 +91,8 @@ def best_sentences(query: str, chunks: list[RetrievedChunk], n: int = 1) -> list
                 toks = _content_tokens(s)
                 if not toks:
                     continue
-                overlap = len(q & toks)
-                scored.append((overlap + 0.01 * len(toks) - 0.001 * ci, ci, s, c.chunk_id))
+                bonus = 2.0 if lookup and _HAS_NUMBER.search(s) and len(s.split()) <= 30 else 0.0
+                scored.append((_overlap(q, toks) + bonus + 0.01 * len(toks) - 0.001 * ci, ci, s, c.chunk_id))
     scored.sort(reverse=True)
     return [(s, cid) for _, _, s, cid in scored[:n]]
 
@@ -183,10 +205,164 @@ def _faq_card(req: LLMRequest) -> dict:
     }
 
 
+_MONEY = Decimal("0.01")
+
+
+def _num(text: str) -> float:
+    return float(text.replace(",", ""))
+
+
+def _first(rx: str, text: str, default: str | None = None) -> str | None:
+    m = re.search(rx, text, re.I)
+    return m.group(1) if m else default
+
+
+def _kb_sentence(chunks: list[RetrievedChunk], needles: tuple[str, ...], default: str) -> str:
+    """A sentence quoted from the retrieved context (so the Critic can ground it), else `default`."""
+    for needle in needles:
+        for c in chunks:
+            for line in _body_lines(c):
+                for sent in _SENT.split(line):
+                    if needle.lower() in sent.lower() and len(sent.split()) >= 4:
+                        return sent.strip()
+    return default
+
+
+def _top_cites(chunks: list[RetrievedChunk], *needles: str) -> list[str]:
+    out = _cites(chunks, *needles)
+    return out or [c.chunk_id for c in chunks[:1]]
+
+
+def _appr_params(query: str) -> dict | None:
+    hours = _first(r"(\d+(?:\.\d+)?)\s*[- ]?hours?", query)
+    if hours is None:
+        return None
+    pax = int(_first(r"(\d+)\s+passengers?", query, "1"))
+    bags = int(_first(r"for each of my (\d+) checked bags?", query) or _first(r"(\d+)\s+checked bags?", query, "0"))
+    fee = _num(_first(r"\$\s?(\d+(?:\.\d+)?)\s+fee", query, "0"))
+    return {"hours": float(hours), "pax": pax, "bags": bags, "fee": fee}
+
+
+def _appr_card(req: LLMRequest) -> dict | None:
+    p = _appr_params(req.query)
+    if not p:
+        return None
+    h = p["hours"]
+    per_pax = 0 if h < 3 else 400 if h < 6 else 700 if h < 9 else 1000  # large-carrier tiers
+    delay = per_pax * p["pax"]
+    bag = round(p["bags"] * p["fee"], 2)
+    rejected = []
+    if re.search(r"EU\s?261", req.query, re.I):
+        rejected.append({
+            "claim": "EU261 compensation of EUR 600",
+            "reason": _kb_sentence(
+                req.chunks, ("EU261",), "EU261 is the European regime and does not govern a Canadian flight."
+            ),
+        })
+    if re.search(r"voucher", req.query, re.I):
+        rejected.append({
+            "claim": "A $300 voucher instead of cash",
+            "reason": _kb_sentence(
+                req.chunks, ("voucher",), "Cash compensation is owed under APPR; a voucher is not the entitlement."
+            ),
+        })
+    return {
+        "kind": "appr_claim",
+        "carrier_size": "large",
+        "delay_hours": h,
+        "delay_cause": "within_control",
+        "passengers": p["pax"],
+        "delay_compensation_cad": delay,
+        "baggage_refund_cad": bag,
+        "total_cad": delay + bag,
+        "rejected_claims": rejected,
+        "citations": _top_cites(req.chunks, "$700", "6 hours", "baggage", "EU261"),
+    }
+
+
+def _tenancy_card(req: LLMRequest) -> dict | None:
+    q = req.query
+    rent = _first(r"\$\s?([\d,]+(?:\.\d+)?)\s*/\s*month", q)
+    if rent is None:
+        return None
+    rent_d, pct = Decimal(rent.replace(",", "")), Decimal("2.3")  # 2026 cap per the knowledge base
+    inc = (rent_d * pct / 100).quantize(_MONEY)
+    asked = _first(r"(\d+(?:\.\d+)?)\s?%", q)
+    excess = _first(r"over-?contributed\s+\$\s?([\d,]+)", q, "0")
+    months = int(_first(r"for\s+(\d+)\s+months?", q, "0"))
+    excess_d = Decimal(excess.replace(",", ""))
+    findings = []
+    if re.search(r"cousin", q, re.I):
+        findings += [
+            _kb_sentence(req.chunks, ("close family",), "Cousin: not close family"),
+            _kb_sentence(req.chunks, ("4 months", "four months"), "4 months' notice required"),
+        ]
+    return {
+        "kind": "tenancy_tax",
+        "current_rent_cad": rent_d,
+        "allowed_increase_pct": pct,
+        "max_increase_cad": inc,
+        "max_new_rent_cad": rent_d + inc,
+        "proposed_increase_lawful": bool(asked) and Decimal(asked) <= pct,
+        "eviction_notice_valid": not findings,
+        "eviction_findings": findings,
+        "tfsa_excess_cad": excess_d,
+        "tfsa_months": months,
+        "tfsa_penalty_cad": (excess_d * months / 100).quantize(_MONEY),
+        "citations": _top_cites(req.chunks, "2.3%", "close family", "1%"),
+    }
+
+
+def _nutrition_card(req: LLMRequest) -> dict | None:
+    """Built from the domain calculator + ingredient matrix, so the simulator can never disagree with the key."""
+    from app import domains
+    from app.domains import nutrition as nut
+
+    try:
+        exp = domains.expected_answer("nutrition", "hallucination_trap", req.query)
+        matrix = nut.load_matrix()
+    except Exception:
+        return None
+    if exp is None or "order" not in exp.details:
+        return None
+    d = exp.details
+    lines = []
+    for name, mult in d["order"]:
+        ing = matrix[name.lower()]
+        label = ing.name + (f" (x{mult})" if mult > 1 else "")
+        lines.append({"item": label, "kcal": ing.kcal * mult, "protein_g": ing.protein * mult,
+                      "sodium_mg": ing.sodium * mult, "allergens": list(ing.allergens)})
+    violations = list(d["violations"])
+    allergens = list(d["allergens"])
+    soy_or_other = [a for a in allergens if a != "milk"]
+    if soy_or_other and not any("allerg" in v for v in violations):
+        pass  # allergens other than the diet's excluded ones are reported in allergens_present only
+    return {
+        "kind": "nutrition_audit", "lines": lines, "total_kcal": d["kcal"], "total_protein_g": d["protein"],
+        "total_sodium_mg": d["sodium"], "allergens_present": allergens, "violations": violations,
+        "compliant": not violations, "citations": _top_cites(req.chunks, "sodium", "kcal", "milk"),
+    }
+
+
+_SPECIAL = {"appr_claim": _appr_card, "tenancy_tax": _tenancy_card, "nutrition_audit": _nutrition_card}
+
+
+def can_build(card_kind: str, query: str, preset_id: str | None, domain: str = "b2b_sla") -> bool:
+    """Can the simulator produce a *correct* card of this kind for this query? (Else the engineered demo uses FAQ.)"""
+    probe = LLMRequest(role="generator", tier="70b", query=query, preset_id=preset_id, card_kind=card_kind, domain=domain)
+    if card_kind == "invoice_audit":
+        return preset_id == "hallucination_trap" or "INV-2291" in query
+    if card_kind in _SPECIAL:
+        return _SPECIAL[card_kind](probe) is not None
+    return True
+
+
 def generator_card(req: LLMRequest) -> dict:
     kind = req.card_kind or "faq"
     if kind == "invoice_audit" and (req.preset_id == "hallucination_trap" or "INV-2291" in req.query):
         return _invoice_card(req)
+    if kind in _SPECIAL and (card := _SPECIAL[kind](req)):
+        return card
     if kind == "triage":
         return _triage_card(req)
     if kind == "secure_response":
@@ -195,7 +371,9 @@ def generator_card(req: LLMRequest) -> dict:
 
 
 def _naive_text(req: LLMRequest) -> str:
-    return NAIVE_SCRIPTS.get(req.preset_id or "", GENERIC_NAIVE)
+    if req.preset_id in NAIVE_SCRIPTS and req.domain == "b2b_sla":
+        return NAIVE_SCRIPTS[req.preset_id]
+    return DOMAIN_NAIVE.get((req.domain, req.preset_kind or ""), GENERIC_NAIVE)
 
 
 class SimulatorClient:
@@ -210,7 +388,7 @@ class SimulatorClient:
     def full_text(self, req: LLMRequest) -> str:
         if req.role == "naive":
             return _naive_text(req)
-        return json.dumps(generator_card(req), indent=2)
+        return json.dumps(generator_card(req), indent=2, default=lambda o: float(o) if isinstance(o, Decimal) else str(o))
 
     async def stream(self, req: LLMRequest) -> AsyncIterator[str | Reset]:
         ttft, per_token = self.TIMING[req.tier]

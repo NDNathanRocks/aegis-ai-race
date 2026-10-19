@@ -70,7 +70,7 @@ sequenceDiagram
 - **Critic.** A deterministic, offline grounding check (no extra LLM call, so no extra rate-limit or cost). Every dollar amount must be derivable from the retrieved text or the question in at most two arithmetic steps, and every percentage must appear literally. Unsupported claims, uncited chunk ids or schema errors send the draft back to the generator once with feedback.
 - **Validation.** Pydantic v2 models with cross-field checks: an invoice card's total must equal the sum of its findings, each finding must equal billed − expected, and the verdict must match the sign of the discrepancy.
 - **RAG triad.** Faithfulness, context relevance, schema validity, plus context recall against each preset's ground-truth facts.
-- **Resilience.** No `GROQ_API_KEY`, a 429, a timeout or a mid-stream failure all fall back to a deterministic streaming simulator (with a `fallback` event and a visible **DEMO** badge) so the demo never breaks. After a rate limit the live path cools down for 60 s.
+- **Resilience & parity.** Both sides of a race share one provider decision (`race_id`). Groq 429/5xx are retried with backoff honouring `retry-after`, staggered and budgeted per model from Groq's rate-limit headers. If Groq still fails, the *whole race* falls back to the deterministic simulator (visible **DEMO** badge, degraded-race banner) and is excluded from the scoreboard, so a LIVE-vs-DEMO split is never presented as a fair comparison.
 
 ### SSE contract
 
@@ -193,6 +193,18 @@ docs/      screenshots and benchmark output
 ## Known limitations
 
 - The corpus is six synthetic documents; the invoice figures are fabricated for the demo.
-- Token counts are estimates (~4 chars/token), not provider-reported usage.
+- In `LIVE · Groq` mode token counts are provider-reported (`usage`, summed across Critic retries); in demo mode they are estimates (~4 chars/token) and shown with a `~` prefix.
 - The critic is a deterministic numeric/lexical grounding check, not an LLM judge. It is fast and free but will not catch subtle semantic errors in free text.
 - `npm audit` reports advisories in the PostCSS copy bundled with Next 15; the only offered fix is the Next 16 major upgrade. They concern processing attacker-controlled CSS at build time, which this app does not do.
+
+
+## v2: four domains, runtime controls, deterministic verdicts
+
+- **Four switchable knowledge bases** in `backend/data/corpus/<domain>/`: Air Canada & APPR (default), BC Tenancy + CRA, Restaurant Nutrition (illustrative synthetic data), Enterprise B2B SLA. Each has three prompt cards (hallucination/math trap, Tier-1 router, prompt injection) shown verbatim and editable.
+- **Race configuration bar:** naive-side context (full KB stuffing vs. raw LLM) and base model (70B / 8B / auto tiered routing). Both sides use the same model unless you pick auto.
+- **Inspect Prompt & Context Tokens** shows exactly what each side sent to the model.
+- **Verdicts are rule-checked, not LLM-judged:** per-domain calculators and answer keys (`backend/app/domains/`) score both sides on live or simulated text.
+- Measured retrieval latency and the honest limits on 0.1 vCPU are in `docs/benchmarks.md`; security notes in `docs/security.md`; design contract in `docs/contract-v2.md`.
+- Render: set `TRUST_PROXY=1`, `CORS_ORIGINS=<vercel origin>`, `GROQ_API_KEY`.
+
+- **Groq model ids** default to `llama-3.3-70b-versatile` / `llama-3.1-8b-instant` and are overridable with `GROQ_HEAVY_MODEL` / `GROQ_FAST_MODEL`. Access is per account: if races fall back with `upstream_error`, check `https://api.groq.com/openai/v1/models` for your key. `openai/gpt-oss-*` reasoning models are supported (low reasoning effort is requested automatically). The UI model picker labels are generic tiers; the chip on each panel shows the exact model that ran.

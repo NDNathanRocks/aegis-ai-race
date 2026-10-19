@@ -23,3 +23,5 @@ The Enterprise Plan includes Premium Support (24x7, 15-minute P1 response) at no
 
 ## 6. Late Fees
 Late fees of 1.5% per month apply only to undisputed amounts that remain unpaid 45 days after the invoice date.
+
+*Demo knowledge base; not legal, tax or medical advice.*

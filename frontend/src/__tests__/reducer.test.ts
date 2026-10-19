@@ -8,6 +8,7 @@ const usage = (cost: number, tier: "8b" | "70b" = "70b"): TokenUsage => ({
   completion_tokens: 5,
   tier,
   cost_usd: cost,
+  source: "estimate",
 });
 const ev = (e: RaceEvent): Action => ({ type: "event", event: e });
 const done = (over: Partial<DoneData> = {}): RaceEvent => ({

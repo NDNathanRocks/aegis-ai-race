@@ -1,0 +1,47 @@
+{
+  "version": "1",
+  "documents": [
+    {
+      "id": "rent_increase_rules_bc",
+      "title": "BC Rent Increase Rules (2026)",
+      "category": "Regulation",
+      "source_note": "regulation-paraphrase; 2026 cap 2.3% and 2027 cap 2.2% are user-verified figures, RTB-7 and 3 full months per the Act"
+    },
+    {
+      "id": "landlord_use_eviction_bc",
+      "title": "BC Landlord's Use Eviction",
+      "category": "Regulation",
+      "source_note": "regulation-paraphrase (RTB-32, 4 months, close family excludes cousins, 12 months bad-faith compensation); verify with the RTB"
+    },
+    {
+      "id": "cra_tfsa_overcontribution",
+      "title": "CRA TFSA Over-Contributions",
+      "category": "Tax Rule",
+      "source_note": "regulation-paraphrase (1% per month on highest excess, RC243); verify with the CRA"
+    },
+    {
+      "id": "rtb_bulletin_2025_superseded",
+      "title": "Superseded 2025 RTB Bulletin",
+      "category": "Distractor",
+      "source_note": "synthetic distractor presenting the superseded 2025 3.0% figure"
+    },
+    {
+      "id": "ontario_ltb_comparison",
+      "title": "Ontario LTB Comparison",
+      "category": "Distractor",
+      "source_note": "approximate; Ontario figures not verified, included only as a conflicting-jurisdiction distractor"
+    },
+    {
+      "id": "rtb_dispute_resolution_process",
+      "title": "RTB Dispute Resolution Process",
+      "category": "Procedure",
+      "source_note": "regulation-paraphrase; time limits approximate, verify with the RTB"
+    },
+    {
+      "id": "tfsa_room_and_withdrawals",
+      "title": "TFSA Contribution Room and Withdrawals",
+      "category": "Tax Rule",
+      "source_note": "regulation-paraphrase; $7,000 annual limit for 2025 and 2026 not independently verified offline"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "version": "1",
+  "documents": [
+    {
+      "id": "footlong_ingredient_matrix",
+      "title": "Footlong Ingredient Matrix",
+      "category": "Nutrition Data",
+      "source_note": "synthetic, illustrative brand-neutral numbers; not any restaurant's official data",
+      "atomic": true
+    },
+    {
+      "id": "strict_diet_cap_policy",
+      "title": "Strict Diet Cap Policy",
+      "category": "Policy",
+      "source_note": "synthetic audit rules"
+    },
+    {
+      "id": "allergen_declaration_guide",
+      "title": "Allergen Declaration Guide",
+      "category": "Allergen Data",
+      "source_note": "synthetic, illustrative hidden-allergen assignments"
+    },
+    {
+      "id": "six_inch_values_distractor",
+      "title": "Six-Inch Values (distractor)",
+      "category": "Distractor",
+      "source_note": "synthetic six-inch table, deliberately not for footlong totals"
+    },
+    {
+      "id": "order_audit_worked_examples",
+      "title": "Order Audit Worked Examples",
+      "category": "Policy",
+      "source_note": "synthetic worked examples computed from the illustrative matrix"
+    },
+    {
+      "id": "nutrition_faq_and_label_rules",
+      "title": "Nutrition FAQ and Label Rules",
+      "category": "Policy",
+      "source_note": "synthetic"
+    },
+    {
+      "id": "ordering_and_substitutions",
+      "title": "Ordering Rules, Substitutions and Special Diets",
+      "category": "Policy",
+      "source_note": "synthetic"
+    }
+  ]
+}

@@ -15,3 +15,5 @@ Schedules are published 14 days in advance. Changes inside 7 days require manage
 
 ## 4. Overtime
 Hours beyond 40 per week are paid at 1.5x. Overtime above 10 hours per week requires director approval.
+
+*Demo knowledge base; not legal, tax or medical advice.*

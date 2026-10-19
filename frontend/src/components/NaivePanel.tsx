@@ -2,9 +2,10 @@
 
 import { useMemo } from "react";
 import { inlineBold, segmentize } from "@/lib/highlight";
-import { fmtMs, fmtUsd } from "@/lib/format";
+import { fmtMs, fmtTokens, fmtUsd } from "@/lib/format";
 import type { NaiveRun } from "@/lib/reducer";
-import { Badge, SectionLabel, Stat } from "./ui";
+import { Badge, SectionLabel, Stat, StatusHint } from "./ui";
+import { InspectButton } from "./PayloadDrawer";
 import { ModeBadge } from "./ModeBadge";
 
 function Inline({ text }: { text: string }) {
@@ -36,7 +37,17 @@ function Stage({ label, sub, active, done }: { label: string; sub: string; activ
   );
 }
 
-export function NaivePanel({ run, elapsedMs }: { run: NaiveRun; elapsedMs: number | null }) {
+export function NaivePanel({
+  run,
+  elapsedMs,
+  inspectOpen,
+  onInspect,
+}: {
+  run: NaiveRun;
+  elapsedMs: number | null;
+  inspectOpen: boolean;
+  onInspect: () => void;
+}) {
   const claims = useMemo(() => run.analysis?.ungrounded_claims ?? [], [run.analysis]);
   const segments = useMemo(() => segmentize(run.text, claims), [run.text, claims]);
   const running = run.status === "running";
@@ -52,23 +63,26 @@ export function NaivePanel({ run, elapsedMs }: { run: NaiveRun; elapsedMs: numbe
           <h2 className="text-sm font-semibold text-naive">Naive LLM Wrapper</h2>
           <p className="text-[11px] text-mute">One prompt, one big model, no safety net</p>
         </div>
-        <ModeBadge mode={run.mode} reason={run.fallbackReason} />
+        <ModeBadge mode={run.mode} reason={run.fallbackReason} provider={run.provider} model={run.model} />
       </header>
+      <StatusHint hint={run.statusHint} />
 
       <div className="space-y-4 p-4">
         <div className="flex items-center gap-1.5" aria-label="Pipeline">
-          <Stage label="Raw Prompt" sub="no context" active={false} done={run.status !== "idle"} />
+          <Stage label="Raw Prompt" sub={run.contextMode === "none" ? "no context" : "full KB stuffed"} active={false} done={run.status !== "idle"} />
           <span aria-hidden className="text-mute">→</span>
-          <Stage label="Heavy 70B LLM" sub="llama-3.3-70b" active={running && !streaming} done={streaming || run.status === "done"} />
+          <Stage label="Heavy 70B LLM" sub={run.model ?? "llama-3.3-70b"} active={running && !streaming} done={streaming || run.status === "done"} />
           <span aria-hidden className="text-mute">→</span>
           <Stage label="Unstructured Text" sub="free-form" active={streaming} done={run.status === "done"} />
         </div>
 
-        <div className="grid grid-cols-3 gap-3 rounded-xl border border-line bg-raised px-3 py-2.5">
+        <div className="grid grid-cols-3 gap-3 rounded-lg border border-line bg-raised px-3 py-2.5">
           <Stat label="Elapsed" value={fmtMs(elapsedMs)} />
-          <Stat label="Tokens (est.)" value={(run.promptTokens + run.completionTokens).toLocaleString()} />
+          <Stat label="Tokens" value={fmtTokens(run.promptTokens + run.completionTokens, run.tokenSource)} />
           <Stat label="Cost @ $15/1M" value={fmtUsd(run.costUsd)} />
         </div>
+
+        <InspectButton side="naive" available={run.payloads.length > 0} open={inspectOpen} onClick={onInspect} />
 
         <div>
           <SectionLabel>Raw output</SectionLabel>

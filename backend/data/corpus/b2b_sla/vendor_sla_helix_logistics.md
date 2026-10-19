@@ -17,3 +17,5 @@ Standard Plan support is business hours (Mon-Fri 08:00-18:00 local), with a 4-ho
 
 ## 5. Billing
 Invoices are issued on the 1st of the month for the prior month's usage. Disputes must be filed within 30 days of the invoice date.
+
+*Demo knowledge base; not legal, tax or medical advice.*
