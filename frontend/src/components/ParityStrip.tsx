@@ -52,7 +52,8 @@ export function ParityStrip({
       </div>
       {ratio !== null && ratio >= 1.05 && (
         <p className="mt-2 text-[11px] text-mute">
-          Measured: the engineered side sent <span className="num text-ink">{ratio.toFixed(1)}x</span> fewer input tokens.
+          Measured: with DualSight the engineered side sent <span className="num text-ink">{ratio.toFixed(1)}x</span> fewer
+          input tokens. Input tokens are what you pay for on every question.
         </p>
       )}
     </section>

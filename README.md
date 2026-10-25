@@ -18,6 +18,8 @@ Visitors don't upload anything. Four one-click challenges demonstrate one failur
 
 ## DualSight Retrieval: what it means for a business
 
+![DualSight Retrieval pitch section](docs/dualsight.png)
+
 DualSight is the retrieval layer on the engineered side. It searches your knowledge base through two lenses at once:
 an **exact lens** (keyword search for invoice IDs, clause numbers, SKUs, amounts) and a **meaning lens** (semantic
 search that understands a question however it is phrased). The two rankings are fused, and the model sees only the
@@ -52,7 +54,7 @@ flowchart LR
     direction LR
     R[Guardrail +<br/>Semantic Router] --> C{Semantic<br/>Cache}
     C -- HIT --> V
-    C -- MISS --> H[Hybrid Retriever<br/>BM25 + dense, RRF] --> GEN[Generator<br/>8B or 70B] --> K[Hallucination<br/>Critic]
+    C -- MISS --> H[DualSight Retrieval<br/>BM25 + dense, RRF] --> GEN[Generator<br/>8B or 70B] --> K[Hallucination<br/>Critic]
     K -- "ungrounded (max 1 retry)" --> GEN
     K -- grounded --> V[Pydantic<br/>Validator + RAG-triad eval]
   end

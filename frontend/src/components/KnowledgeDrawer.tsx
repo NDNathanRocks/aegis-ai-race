@@ -104,7 +104,7 @@ export function KnowledgeDrawer({
                 <div className="font-medium leading-snug">{d.title}</div>
                 <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-mute">
                   {d.category}
-                  {retrievedDocIds.includes(d.id) && <Badge tone="eng">retrieved</Badge>}
+                  {retrievedDocIds.includes(d.id) && <Badge tone="eng" title="DualSight passed passages from this document to the model">retrieved</Badge>}
                 </div>
               </button>
             ))}
