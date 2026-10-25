@@ -218,11 +218,11 @@ class NutritionAuditCard(BaseModel):
 
     @model_validator(mode="after")
     def _totals(self):
-        if sum(l.kcal for l in self.lines) != self.total_kcal:
+        if sum(ln.kcal for ln in self.lines) != self.total_kcal:
             raise ValueError("total_kcal != sum of lines")
-        if sum((l.protein_g for l in self.lines), Decimal(0)) != self.total_protein_g:
+        if sum((ln.protein_g for ln in self.lines), Decimal(0)) != self.total_protein_g:
             raise ValueError("total_protein_g != sum of lines")
-        if sum(l.sodium_mg for l in self.lines) != self.total_sodium_mg:
+        if sum(ln.sodium_mg for ln in self.lines) != self.total_sodium_mg:
             raise ValueError("total_sodium_mg != sum of lines")
         if self.compliant != (not self.violations):
             raise ValueError("compliant must be true exactly when violations is empty")

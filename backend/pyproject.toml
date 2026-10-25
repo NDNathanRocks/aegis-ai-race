@@ -31,6 +31,12 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E501", "E702"]  # one-off profiling/bench tools
+"tests/test_answer_keys.py" = ["E501"]  # long literal answer strings
+"app/domains/nutrition.py" = ["E501"]  # regex row pattern
+"app/rag/corpus.py" = ["E501"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"

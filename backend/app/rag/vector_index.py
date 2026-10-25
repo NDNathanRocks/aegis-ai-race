@@ -50,6 +50,7 @@ class PgVectorIndex:
     def __init__(self, dsn: str, vectors: np.ndarray, namespace: str = ""):
         import psycopg
         from pgvector.psycopg import register_vector
+        from psycopg import sql
 
         if namespace and not re.fullmatch(r"[a-z0-9_]{1,40}", namespace):
             raise ValueError("invalid vector index namespace")
@@ -59,25 +60,30 @@ class PgVectorIndex:
         with psycopg.connect(dsn, autocommit=True) as conn:
             conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
             register_vector(conn)
-            conn.execute(f"DROP TABLE IF EXISTS {self._table}")
+            table = sql.Identifier(self._table)
+            conn.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(table))
             conn.execute(
-                f"CREATE TABLE {self._table} (idx int PRIMARY KEY, embedding vector({vectors.shape[1]}))"
+                sql.SQL("CREATE TABLE {} (idx int PRIMARY KEY, embedding vector({}))").format(
+                    table, sql.Literal(int(vectors.shape[1]))
+                )
             )
             with conn.cursor() as cur:
                 cur.executemany(
-                    f"INSERT INTO {self._table} (idx, embedding) VALUES (%s, %s)",
+                    sql.SQL("INSERT INTO {} (idx, embedding) VALUES (%s, %s)").format(table),
                     [(i, v) for i, v in enumerate(vectors)],
                 )
 
     def search(self, query_vec: np.ndarray, k: int) -> list[tuple[int, float]]:
         import psycopg
         from pgvector.psycopg import register_vector
+        from psycopg import sql
 
         with psycopg.connect(self._dsn) as conn:
             register_vector(conn)
             rows = conn.execute(
-                f"SELECT idx, 1 - (embedding <=> %s) AS sim FROM {self._table} "
-                "ORDER BY embedding <=> %s LIMIT %s",
+                sql.SQL(
+                    "SELECT idx, 1 - (embedding <=> %s) AS sim FROM {} ORDER BY embedding <=> %s LIMIT %s"
+                ).format(sql.Identifier(self._table)),
                 (query_vec, query_vec, k),
             ).fetchall()
         return [(int(i), float(s)) for i, s in rows]

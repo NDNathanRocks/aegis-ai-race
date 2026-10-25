@@ -11,3 +11,14 @@ Audited the v2 diff against the running backend (demo mode, no Groq key) and the
 | **Secret exposure** | `GROQ_API_KEY` appears only in the outbound `Authorization` header. `/api/config`, SSE events (including `payload`), errors and logs never contain it; a test scans SSE output, config and logs for the key value. |
 | **Output rendering** | Payload inspector and model output are rendered as React text, never `dangerouslySetInnerHTML`. |
 | **Known limits** | In-memory limiter and cache are per process (single worker; use Redis to scale). A race side that finished live before its sibling degraded keeps its real output; the race is flagged and excluded from the scoreboard. |
+
+## Phase 3 hardening (2026-10-24)
+
+| Area | Change |
+|---|---|
+| **Prompt injection** | Not provably impossible: a pattern filter cannot catch every paraphrase. `guardrails.scan` now normalises input (NFKC, zero-width stripped, leetspeak folded) and also matches a letters-only form, and adds `new_instructions` and `delimiter_spoof` patterns (`</context>`, `SYSTEM:` and similar). Backing layers: user text is framed as untrusted data, the model has no tools and no secrets in context, output must validate against a strict Pydantic schema, and the critic checks grounding. The naive path is intentionally unguarded. |
+| **Headers** | Frontend: CSP, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Permissions-Policy`. Backend: `nosniff`, `Referrer-Policy: no-referrer`, `default-src 'none'`. HSTS is left to the host (Vercel / HF). |
+| **Rate limits** | `/api/cache/reset` and `/api/kb/*`, `/api/domains` share a 120/min per-client limiter (`RATE_LIMIT_META_PER_MIN`). |
+| **SQL** | pgvector table names go through `psycopg.sql.Identifier` (they were already regex-validated). |
+| **Errors** | SSE `internal_error` carries a generic message; details are logged server-side. |
+| **Repo hygiene** | Full git history scanned for key patterns and secret-like files: none found. `.env.*` and `.playwright-mcp/` are gitignored. Containers run as non-root; the compose Redis/Postgres publish no host ports. |

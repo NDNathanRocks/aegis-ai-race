@@ -226,7 +226,7 @@ _WRONG_APPR = (
 
 
 def test_correct_live_answer_that_rebuts_the_traps_is_not_flagged():
-    from app.domains import expected_answer, check_answer
+    from app.domains import check_answer, expected_answer
     from tests.heroes import TRAVEL_HERO
 
     exp = expected_answer("travel_appr", "hallucination_trap", TRAVEL_HERO)
@@ -235,7 +235,7 @@ def test_correct_live_answer_that_rebuts_the_traps_is_not_flagged():
 
 
 def test_wrong_answer_that_asserts_the_traps_is_still_flagged():
-    from app.domains import expected_answer, check_answer
+    from app.domains import check_answer, expected_answer
     from tests.heroes import TRAVEL_HERO
 
     exp = expected_answer("travel_appr", "hallucination_trap", TRAVEL_HERO)

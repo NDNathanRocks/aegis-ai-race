@@ -192,3 +192,18 @@ async def test_client_disconnect_closes_the_source_generator():
 def test_cors_exposes_retry_after(client):
     r = client.get("/api/health", headers={"Origin": "http://localhost:3000"})
     assert "retry-after" in r.headers.get("access-control-expose-headers", "").lower()
+
+
+def test_backend_sends_security_headers(client):
+    h = client.get("/api/health").headers
+    assert h["x-content-type-options"] == "nosniff" and h["referrer-policy"] == "no-referrer"
+    assert "default-src 'none'" in h["content-security-policy"]
+
+
+def test_cache_reset_and_kb_routes_are_rate_limited(client):
+    from app.deps import RateLimiter
+
+    client.app.state.meta_limiter = RateLimiter(3)
+    codes = [client.post("/api/cache/reset", json={"session_id": "rl-test-session"}).status_code for _ in range(5)]
+    assert codes[:3] == [200, 200, 200] and codes[3:] == [429, 429]
+    assert client.get("/api/kb/b2b_sla/documents").status_code == 429

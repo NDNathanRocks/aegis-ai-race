@@ -5,6 +5,9 @@ __pycache__/
 .ruff_cache/
 .cache/
 .env
+.env.*
+!.env.example
+.playwright-mcp/
 node_modules/
 .next/
 out/

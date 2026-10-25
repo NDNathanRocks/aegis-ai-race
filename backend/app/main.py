@@ -19,6 +19,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.ready = False
         app.state.ctx = await asyncio.to_thread(build_context, settings)
         app.state.limiter = RateLimiter(settings.rate_limit_per_min)
+        app.state.meta_limiter = RateLimiter(settings.rate_limit_meta_per_min)
         app.state.ready = True
         yield
 
@@ -31,6 +32,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         expose_headers=["Retry-After"],  # read by the frontend 429 countdown; hidden cross-origin otherwise
         max_age=600,
     )
+    @app.middleware("http")
+    async def security_headers(request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+        return response
+
     app.include_router(meta.router, prefix="/api")
     app.include_router(race.router, prefix="/api")
     return app

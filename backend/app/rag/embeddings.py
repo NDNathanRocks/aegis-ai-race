@@ -4,7 +4,8 @@ import os
 import re
 import threading
 from collections import OrderedDict
-from typing import Callable, Protocol
+from collections.abc import Callable
+from typing import Protocol
 
 # One ONNX/BLAS thread: under a CFS CPU quota (e.g. 0.1 vCPU on a many-core host) extra intra-op threads only
 # fight over the quota. Must be set before onnxruntime / numpy's BLAS are first loaded, so it lives at import time.

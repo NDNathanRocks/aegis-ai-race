@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app import domains as dom
+from app.api.race import client_key
 from app.presets import PRESETS
 from app.rag.corpus import load_documents
 
@@ -18,6 +19,12 @@ class CacheResetBody(BaseModel):
 
 def _ctx(request: Request):
     return request.app.state.ctx
+
+
+def _throttle(request: Request) -> None:
+    retry_after = request.app.state.meta_limiter.check(client_key(request))
+    if retry_after is not None:
+        raise HTTPException(429, "Rate limit exceeded", headers={"Retry-After": str(int(retry_after) + 1)})
 
 
 def _domain_dir(request: Request, domain: str):
@@ -59,6 +66,7 @@ async def config(request: Request) -> dict:
 
 @router.get("/domains")
 async def domains(request: Request) -> list[dict]:
+    _throttle(request)
     ctx = _ctx(request)
     out = []
     for spec in dom.list_domains():
@@ -101,12 +109,14 @@ async def presets(domain: str | None = None) -> list[dict]:
 
 @router.get("/kb/{domain}/documents")
 async def kb_documents(domain: str, request: Request) -> list[dict]:
+    _throttle(request)
     docs = load_documents(_domain_dir(request, domain))
     return [{"id": d.id, "title": d.title, "category": d.category, "words": len(d.text.split())} for d in docs]
 
 
 @router.get("/kb/{domain}/documents/{doc_id}")
 async def kb_document(domain: str, doc_id: str, request: Request) -> dict:
+    _throttle(request)
     for d in load_documents(_domain_dir(request, domain)):
         if d.id == doc_id:
             return {"id": d.id, "title": d.title, "category": d.category, "text": d.text}
@@ -126,5 +136,6 @@ async def kb_document_legacy(doc_id: str, request: Request) -> dict:
 
 @router.post("/cache/reset")
 async def cache_reset(body: CacheResetBody, request: Request) -> dict:
+    _throttle(request)
     _ctx(request).reset_cache(body.session_id)
     return {"ok": True}
