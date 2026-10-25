@@ -35,6 +35,11 @@ passages they agree on; a critic then rejects any claim those passages don't sup
 In the UI, each retrieved passage is labelled with the lens that found it (`both lenses`, `exact lens`, `meaning lens`).
 The name and pitch copy live in `frontend/src/lib/brand.ts`.
 
+### Presenting it
+
+- **Pitch mode.** Press **▶ Pitch mode** in the header, or open the app with `?tour=1`, for a captioned walkthrough: the hallucination trap and its verdict, the paraphrased repeat served from the semantic cache, and the prompt-injection attack, ending on the scoreboard. You can pause, skip ahead or exit at any step. It uses the currently selected domain.
+- **Checkable sources.** Every source on the engineered answer card is clickable. It opens the knowledge base at that document, highlights the cited passage and scrolls to it. This also works on a cache hit: the cited passages are stored with the cached answer.
+
 ## Architecture
 
 ```mermaid

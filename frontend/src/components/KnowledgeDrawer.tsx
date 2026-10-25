@@ -1,18 +1,33 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchDocument, fetchDocuments } from "@/lib/api";
+import { passageLineIndices, type CitationFocus } from "@/lib/citations";
 import type { Domain, KbDocument, KbDocumentSummary } from "@/lib/types";
 import { Badge } from "./ui";
 
-function DocText({ text }: { text: string }) {
+const MARK = "-mx-2 rounded border-l-2 border-eng bg-eng/10 px-2";
+
+function DocText({ text, highlight }: { text: string; highlight?: Set<number> }) {
+  const first = highlight && highlight.size ? Math.min(...highlight) : -1;
   return (
     <div className="space-y-1.5 text-[13px] leading-relaxed">
       {text.split("\n").map((line, i) => {
+        const marked = highlight?.has(i) ?? false;
+        const anchor = i === first ? { "data-cited-start": "" } : {};
         if (line.startsWith("# ")) return <h3 key={i} className="pt-1 text-sm font-semibold">{line.slice(2)}</h3>;
-        if (line.startsWith("## ")) return <h4 key={i} className="pt-2 text-xs font-semibold uppercase tracking-wider text-eng">{line.slice(3)}</h4>;
+        if (line.startsWith("## "))
+          return (
+            <h4 key={i} {...anchor} className={`pt-2 text-xs font-semibold uppercase tracking-wider text-eng ${marked ? MARK : ""}`}>
+              {line.slice(3)}
+            </h4>
+          );
         if (!line.trim()) return null;
-        return <p key={i} className="text-mute">{line}</p>;
+        return (
+          <p key={i} {...anchor} className={marked ? `${MARK} text-ink` : "text-mute"}>
+            {line}
+          </p>
+        );
       })}
     </div>
   );
@@ -23,16 +38,20 @@ export function KnowledgeDrawer({
   onClose,
   retrievedDocIds,
   domain,
+  focus = null,
 }: {
   domain: Domain;
   open: boolean;
   onClose: () => void;
   retrievedDocIds: string[];
+  /** A citation to open: loads its document, highlights the passage and scrolls to it. */
+  focus?: CitationFocus | null;
 }) {
   const [docs, setDocs] = useState<KbDocumentSummary[] | null>(null);
   const [selected, setSelected] = useState<KbDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Documents are domain-scoped: reset when the domain changes.
@@ -66,6 +85,23 @@ export function KnowledgeDrawer({
       .then(setSelected)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load document"));
   };
+
+  // Opening a citation loads its document; the nonce re-triggers a repeat click on the same source.
+  useEffect(() => {
+    if (open && focus) select(focus.docId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, focus?.nonce]);
+
+  const cited = focus && selected?.id === focus.docId ? focus : null;
+  const highlight = useMemo(
+    () => (cited && selected ? passageLineIndices(selected.text, cited.text, cited.section) : undefined),
+    [cited, selected],
+  );
+
+  useEffect(() => {
+    if (!highlight?.size) return;
+    textRef.current?.querySelector("[data-cited-start]")?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [highlight]);
 
   return (
     <>
@@ -109,9 +145,20 @@ export function KnowledgeDrawer({
               </button>
             ))}
           </nav>
-          <div className="scroll-thin min-h-0 overflow-auto p-4">
+          <div ref={textRef} className="scroll-thin min-h-0 overflow-auto p-4">
             {error && <p role="alert" className="text-xs text-bad">{error}</p>}
-            {selected ? <DocText text={selected.text} /> : !error && <p className="text-xs text-mute">Select a document to read its full text.</p>}
+            {cited && (
+              <p className="mb-3 rounded-lg border border-eng/30 bg-eng/10 px-3 py-2 text-[11px] text-ink">
+                {highlight?.size
+                  ? `Highlighted: the passage the engineered answer cited (§ ${cited.section}). Check the figures against it.`
+                  : "This document is cited by the engineered answer. Check the figures against it."}
+              </p>
+            )}
+            {selected ? (
+              <DocText text={selected.text} highlight={highlight} />
+            ) : (
+              !error && <p className="text-xs text-mute">Select a document to read its full text.</p>
+            )}
           </div>
         </div>
       </aside>

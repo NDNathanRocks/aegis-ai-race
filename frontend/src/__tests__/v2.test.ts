@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { lensOf } from "@/lib/brand";
+import { passageLineIndices } from "@/lib/citations";
 import { compareRuns, correctAnswerSummary, inputRatio, sentTokens } from "@/lib/compare";
 import {
   B2B_DOMAIN,
@@ -349,5 +350,26 @@ describe("DualSight lens attribution", () => {
     expect(lensOf(0.81, 12.4)).toBe("both");
     expect(lensOf(null, 9.1)).toBe("exact");
     expect(lensOf(0.77, null)).toBe("meaning");
+  });
+});
+
+describe("citation passage highlighting", () => {
+  const doc = [
+    "# Northwind SLA",
+    "## Service credits",
+    "Uptime below 99.5% earns a 10% credit.",
+    "Uptime below 99.0% earns a 25% credit.",
+    "## Support",
+    "Support is bundled at no extra charge.",
+  ].join("\n");
+
+  it("marks the cited body lines and their section heading only", () => {
+    const chunk = "Northwind SLA — Service credits\nUptime below 99.5% earns a 10% credit.\nUptime below 99.0% earns a 25% credit.";
+    expect([...passageLineIndices(doc, chunk, "Service credits")].sort()).toEqual([1, 2, 3]);
+  });
+
+  it("handles packed and continued sections", () => {
+    const chunk = "Northwind SLA — Service credits (cont.); Support\nSupport:\nSupport is bundled at no extra charge.";
+    expect([...passageLineIndices(doc, chunk, "Service credits (cont.); Support")].sort()).toEqual([1, 4, 5]);
   });
 });

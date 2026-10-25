@@ -57,3 +57,31 @@ export function lensOf(dense: number | null, bm25: number | null): "both" | "exa
   if (dense !== null && bm25 !== null) return "both";
   return bm25 !== null ? "exact" : "meaning";
 }
+
+/** Pitch mode (`?tour=1` or the header button): one caption per step of the scripted walkthrough. */
+export const TOUR = {
+  intro: {
+    title: `Meet ${RETRIEVAL_NAME}`,
+    body: "Two AIs, same model, same documents. The left is a typical AI wrapper; the right adds DualSight and a production pipeline. Watch what changes.",
+  },
+  trap: {
+    title: "The hallucination trap",
+    body: "A tricky question goes to both sides. The left reads the whole knowledge base at once; the right pulls the exact clauses, then a critic checks every figure.",
+  },
+  verdict: {
+    title: "The verdict",
+    body: "Both answers are checked against an answer key in code, not by another AI. Click a source on the right to see the passage behind the answer.",
+  },
+  cache: {
+    title: "Asked again, in different words",
+    body: "The semantic cache recognises the same question and answers in milliseconds for $0. The left side pays full price again.",
+  },
+  injection: {
+    title: "An attack hidden in the question",
+    body: "This prompt tells the AI to ignore its rules. The left obeys; the right strips the attack and still returns a strictly formatted answer.",
+  },
+  end: {
+    title: "What you just saw",
+    body: "Answers grounded in your own documents, checked before they ship, near-free on repeat questions and resistant to manipulation. The scoreboard shows cost per correct answer.",
+  },
+} as const;

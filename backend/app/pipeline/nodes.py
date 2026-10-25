@@ -69,6 +69,7 @@ class State(TypedDict, total=False):
     usage_sources: list[str]
     fallback_reason: str | None
     triad: TriadScores
+    sources: list[dict[str, Any]]  # cited passages carried with a cached card
 
 
 def parse_json_object(text: str) -> Any:
@@ -176,6 +177,7 @@ class Nodes:
             if result.hit and result.value:
                 update.update(
                     card=result.value["card"], triad=TriadScores(**result.value["eval"]), chunks=[], draft="",
+                    sources=result.value.get("sources", []),
                     critic=CriticVerdict(passed=True, faithfulness=result.value["eval"]["faithfulness"], flagged_claims=[]),
                 )
             return update, lookup.model_dump(), "ok"
@@ -306,13 +308,18 @@ class Nodes:
                     unsupported=state.get("unsupported", []), schema_valid=valid, preset=self.setup.facts(),
                 )
             if valid:
-                await self.emit("card", card=card, raw_json=raw_json)
+                # The passages the card cites, sent with it so the UI can open each citation at its source.
+                cited = set(card.get("citations") or [])
+                if cache_hit:
+                    sources = state.get("sources", [])
+                else:
+                    sources = [c.model_dump() for c in chunks if c.chunk_id in cited]
+                await self.emit("card", card=card, raw_json=raw_json, sources=sources)
                 critic_ok = state["critic"].passed
                 if not cache_hit and critic_ok:
                     cache = self.ctx.cache_for(self.req.session_id, self.req.domain)
-                    await asyncio.to_thread(
-                        cache.store, state["sanitized"], state["query_vec"], {"card": card, "eval": triad.model_dump()}
-                    )
+                    value = {"card": card, "eval": triad.model_dump(), "sources": sources}
+                    await asyncio.to_thread(cache.store, state["sanitized"], state["query_vec"], value)
             await self.emit("eval", **triad.model_dump())
             return {"card": card, "schema_valid": valid, "triad": triad}, {"valid": valid, "errors": errors}, (
                 "ok" if valid else "error"

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { RETRIEVAL_NAME, RETRIEVAL_TECH, lensOf } from "@/lib/brand";
+import type { CitationTarget } from "@/lib/citations";
 import { fmtMs, fmtTokens, fmtUsd } from "@/lib/format";
 import type { EngineeredRun, NodeState, NodeStatus } from "@/lib/reducer";
 import { ModeBadge } from "./ModeBadge";
@@ -168,7 +169,7 @@ function LensBadge({ lens }: { lens: keyof typeof LENS_LABEL }) {
   );
 }
 
-function GeneratorBody({ run }: { run: EngineeredRun }) {
+function GeneratorBody({ run, onCite }: { run: EngineeredRun; onCite?: (c: CitationTarget) => void }) {
   const [tab, setTab] = useState<"card" | "json" | "stream">("card");
   const generating = run.nodes.generator.status === "active";
   const validation = run.validation;
@@ -210,7 +211,7 @@ function GeneratorBody({ run }: { run: EngineeredRun }) {
       <div className="scroll-thin max-h-80 overflow-auto rounded-lg border border-line bg-bg/50 p-3">
         {active === "card" &&
           (run.card ? (
-            <ResultCard card={run.card} chunks={run.chunks} />
+            <ResultCard card={run.card} chunks={run.chunks.length ? run.chunks : run.sources} onCite={onCite} />
           ) : (
             <p className="text-xs text-mute">{generating ? "Generating a draft…" : "Waiting for a validated card…"}</p>
           ))}
@@ -283,11 +284,13 @@ export function EngineeredPanel({
   elapsedMs,
   inspectOpen,
   onInspect,
+  onCite,
 }: {
   run: EngineeredRun;
   elapsedMs: number | null;
   inspectOpen: boolean;
   onInspect: () => void;
+  onCite?: (c: CitationTarget) => void;
 }) {
   const n: Record<string, NodeState> = run.nodes;
   const gen = combinedGeneratorStage(run);
@@ -356,7 +359,7 @@ export function EngineeredPanel({
             latencyMs={gen.latency}
             badges={run.cacheHit && <Badge tone="good" title="The stored answer was reused">generator skipped · served from cache</Badge>}
           >
-            <GeneratorBody run={run} />
+            <GeneratorBody run={run} onCite={onCite} />
           </PipelineNode>
           <PipelineNode
             index={5}

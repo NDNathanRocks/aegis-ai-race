@@ -43,7 +43,8 @@ export function inputRatio(naive: AnyRun, eng: AnyRun): number | null {
 
 export function correctAnswerSummary(v: VerdictData | null): string | null {
   if (!v || !v.key_applies || v.required.length === 0) return null;
-  return v.required.map((r) => `${r.label} ${r.expected}`).join(" · ");
+  // Answer keys may list accepted spellings as `a|b`; show the first one.
+  return v.required.map((r) => `${r.label} ${r.expected.split("|")[0]}`).join(" · ");
 }
 
 export function missingLabels(v: VerdictData): string[] {

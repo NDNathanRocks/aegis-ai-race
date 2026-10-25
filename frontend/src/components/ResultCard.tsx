@@ -1,8 +1,14 @@
+import type { CitationTarget } from "@/lib/citations";
 import type { RetrievedChunk, StructuredCard } from "@/lib/types";
 import { cad, money } from "@/lib/format";
 import { Badge } from "./ui";
 
-function Citations({ ids, chunks }: { ids: string[]; chunks: RetrievedChunk[] }) {
+type OnCite = (target: CitationTarget) => void;
+
+/** Chunk ids are `<doc_id>#<n>`: enough to open the document even when the passage text is not available. */
+const docOf = (chunkId: string): string | null => (chunkId.includes("#") ? chunkId.slice(0, chunkId.lastIndexOf("#")) : null);
+
+function Citations({ ids, chunks, onCite }: { ids: string[]; chunks: RetrievedChunk[]; onCite?: OnCite }) {
   if (!ids.length) return null;
   const byId = new Map(chunks.map((c) => [c.chunk_id, c]));
   return (
@@ -10,12 +16,27 @@ function Citations({ ids, chunks }: { ids: string[]; chunks: RetrievedChunk[] })
       <span className="text-[10px] uppercase tracking-wider text-mute">Sources</span>
       {ids.map((id) => {
         const c = byId.get(id);
+        const docId = c?.doc_id ?? docOf(id);
+        if (docId && onCite) {
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onCite({ docId, section: c?.section ?? "", text: c?.text ?? "" })}
+              title="Open the source document at this passage"
+              className="inline-flex min-h-[32px] items-center gap-1 rounded border border-eng/40 bg-eng/10 px-1.5 py-0.5 text-left font-mono text-[11px] leading-4 text-eng underline-offset-2 transition-colors hover:bg-eng/20 hover:underline"
+            >
+              {c ? `${c.doc_title} § ${c.section}` : id} <span aria-hidden>↗</span>
+            </button>
+          );
+        }
         return (
           <Badge key={id} tone="eng" title={c?.text ?? id}>
             {c ? `${c.doc_title} § ${c.section}` : id}
           </Badge>
         );
       })}
+      {onCite && <span className="text-[10px] text-mute">Click a source to check the answer against it.</span>}
     </div>
   );
 }
@@ -33,7 +54,7 @@ function Row({ label, value, tone, strong }: { label: string; value: string; ton
 
 const PRIORITY_TONE = { P1: "bad", P2: "warn", P3: "eng", P4: "neutral" } as const;
 
-export function ResultCard({ card, chunks }: { card: StructuredCard; chunks: RetrievedChunk[] }) {
+export function ResultCard({ card, chunks, onCite }: { card: StructuredCard; chunks: RetrievedChunk[]; onCite?: OnCite }) {
   switch (card.kind) {
     case "invoice_audit": {
       const tone = card.verdict === "compliant" ? "good" : card.verdict === "needs_review" ? "warn" : "bad";
@@ -85,7 +106,7 @@ export function ResultCard({ card, chunks }: { card: StructuredCard; chunks: Ret
               </tfoot>
             </table>
           </div>
-          <Citations ids={card.citations} chunks={chunks} />
+          <Citations ids={card.citations} chunks={chunks} onCite={onCite} />
         </div>
       );
     }
@@ -100,7 +121,7 @@ export function ResultCard({ card, chunks }: { card: StructuredCard; chunks: Ret
             <Badge>→ {card.suggested_queue}</Badge>
           </div>
           <p className="mt-3 text-sm">{card.summary}</p>
-          <Citations ids={card.citations} chunks={chunks} />
+          <Citations ids={card.citations} chunks={chunks} onCite={onCite} />
         </div>
       );
     case "secure_response":
@@ -117,7 +138,7 @@ export function ResultCard({ card, chunks }: { card: StructuredCard; chunks: Ret
             ))}
           </div>
           <p className="mt-3 text-sm">{card.answer}</p>
-          <Citations ids={card.citations} chunks={chunks} />
+          <Citations ids={card.citations} chunks={chunks} onCite={onCite} />
         </div>
       );
     case "appr_claim":
@@ -148,7 +169,7 @@ export function ResultCard({ card, chunks }: { card: StructuredCard; chunks: Ret
               </ul>
             </div>
           )}
-          <Citations ids={card.citations} chunks={chunks} />
+          <Citations ids={card.citations} chunks={chunks} onCite={onCite} />
         </div>
       );
     case "tenancy_tax":
@@ -178,7 +199,7 @@ export function ResultCard({ card, chunks }: { card: StructuredCard; chunks: Ret
               ))}
             </ul>
           )}
-          <Citations ids={card.citations} chunks={chunks} />
+          <Citations ids={card.citations} chunks={chunks} onCite={onCite} />
         </div>
       );
     case "nutrition_audit":
@@ -232,7 +253,7 @@ export function ResultCard({ card, chunks }: { card: StructuredCard; chunks: Ret
               ))}
             </ul>
           )}
-          <Citations ids={card.citations} chunks={chunks} />
+          <Citations ids={card.citations} chunks={chunks} onCite={onCite} />
         </div>
       );
     case "faq":
@@ -242,7 +263,7 @@ export function ResultCard({ card, chunks }: { card: StructuredCard; chunks: Ret
           <div className="mt-2 text-[11px] text-mute">
             Model confidence <span className="font-mono text-ink">{Math.round(card.confidence * 100)}%</span>
           </div>
-          <Citations ids={card.citations} chunks={chunks} />
+          <Citations ids={card.citations} chunks={chunks} onCite={onCite} />
         </div>
       );
   }

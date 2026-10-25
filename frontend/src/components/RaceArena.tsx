@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { fetchDomains, getSessionId } from "@/lib/api";
+import type { CitationFocus, CitationTarget } from "@/lib/citations";
 import { B2B_DOMAIN, DEFAULT_DOMAIN, STATIC_DOMAINS, cachePreset, findDomain, heroPreset } from "@/lib/domains";
 import { MOCK, MOCK_FLAVORS, getMockFlavor, setMockFlavor } from "@/lib/mock";
 import { engineeredReducer, initialEngineered, initialNaive, naiveReducer } from "@/lib/reducer";
 import { addRace, emptyScoreboard, parseScoreboard, type Scoreboard as Board } from "@/lib/scoreboard";
 import { markVisited, newRaceId, readVisited, shouldShowNudge } from "@/lib/session";
 import type { ContextMode, Domain, DomainInfo, DomainPreset, ModelMode, PresetId, RaceRequest } from "@/lib/types";
+import { TOUR } from "@/lib/brand";
 import { useEmbedResize } from "@/lib/useEmbedResize";
+import { useTour } from "@/lib/useTour";
 import { useRace, useRunClock } from "@/lib/useRace";
 import { B2BNudge, DegradedBanner } from "./Banners";
 import { DomainSwitcher } from "./DomainSwitcher";
@@ -21,6 +24,7 @@ import { PayloadDrawer } from "./PayloadDrawer";
 import { PromptCards, PromptEditor } from "./PromptCards";
 import { RaceConfigBar } from "./RaceConfigBar";
 import { Scoreboard } from "./Scoreboard";
+import { PitchTour } from "./PitchTour";
 import { ValuePitch } from "./ValuePitch";
 import { VerdictBar } from "./VerdictBar";
 
@@ -53,6 +57,11 @@ export function RaceArena() {
   const [selected, setSelected] = useState<PresetId | null>(null);
   const [board, setBoard] = useState<Board>(emptyScoreboard);
   const [kbOpen, setKbOpen] = useState(false);
+  const [kbFocus, setKbFocus] = useState<CitationFocus | null>(null);
+  const openCitation = useCallback((c: CitationTarget) => {
+    setKbFocus({ ...c, nonce: Date.now() });
+    setKbOpen(true);
+  }, []);
   const [payloadOpen, setPayloadOpen] = useState(false);
   const [lastRun, setLastRun] = useState<LastRun | null>(null);
   const [visited, setVisited] = useState<Domain[]>([]);
@@ -167,6 +176,7 @@ export function RaceArena() {
     setQuery(hero ? hero.query : "");
     setPayloadOpen(false);
     setKbOpen(false);
+    setKbFocus(null);
   }, [domains]);
 
   const cache = cachePreset(domain);
@@ -186,6 +196,63 @@ export function RaceArena() {
     if (chain.current !== token) return;
     await race(cache.paraphrase, cache.id, "paraphrase");
   }, [cache, race]);
+
+  // --- pitch mode -------------------------------------------------------------------------------
+  const tour = useTour();
+  const runTour = tour.start;
+  const startTour = useCallback(() => {
+    const hero = heroPreset(domain);
+    const injection = domain.presets.find((p) => p.kind === "prompt_injection");
+    const paraphrase = hero && cache?.id === hero.id ? cache.paraphrase : undefined;
+    const steps = 2 + (hero ? 2 : 0) + (paraphrase ? 1 : 0) + (injection ? 1 : 0); // intro + end + optional steps
+    // Wait a frame so freshly rendered sections (the verdict) exist before scrolling to them.
+    const focus = (selector: string) =>
+      window.setTimeout(() => document.querySelector(selector)?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    return runTour(async (t) => {
+      let n = 0;
+      chain.current += 1; // cancel any in-flight cache test
+      t.show(++n, steps, TOUR.intro);
+      focus('[aria-labelledby="pitch-title"]');
+      if (!(await t.wait(9000))) return;
+      if (hero) {
+        t.show(++n, steps, TOUR.trap);
+        setSelected(hero.id);
+        setQuery(hero.query);
+        focus("main");
+        await race(hero.query, hero.id, "primary");
+        if (!t.alive()) return;
+        t.show(++n, steps, TOUR.verdict);
+        focus('[aria-label="Verdict"]');
+        if (!(await t.wait(10000))) return;
+      }
+      if (hero && paraphrase) {
+        t.show(++n, steps, TOUR.cache);
+        setQuery(paraphrase);
+        focus("main");
+        await race(paraphrase, hero.id, "paraphrase");
+        if (!(await t.wait(7000))) return;
+      }
+      if (injection) {
+        t.show(++n, steps, TOUR.injection);
+        setSelected(injection.id);
+        setQuery(injection.query);
+        focus("main");
+        await race(injection.query, injection.id, "primary");
+        if (!(await t.wait(8000))) return;
+      }
+      t.show(steps, steps, TOUR.end);
+      focus('[aria-label="Cumulative scoreboard"]');
+    });
+  }, [domain, cache, race, runTour]);
+
+  // `?tour=1` starts pitch mode on load (for kiosks, screen recordings and shared demo links).
+  const autoTour = useSearchParams().get("tour") === "1";
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoTour || autoStarted.current) return;
+    autoStarted.current = true;
+    void startTour();
+  }, [autoTour, startTour]);
 
   const followUpReady =
     !!cache && raceDomainMatches && lastRun?.presetId === cache.id && lastRun.variant === "primary" && eng.state.status === "done";
@@ -233,18 +300,31 @@ export function RaceArena() {
   const configLocked = busy;
 
   return (
-    <div ref={rootRef} className={embed ? "px-2 py-2" : "mx-auto max-w-[1500px] px-4 py-6 sm:px-6"}>
+    <div
+      ref={rootRef}
+      className={`${embed ? "px-2 py-2" : "mx-auto max-w-[1500px] px-4 py-6 sm:px-6"} ${tour.active ? "pb-48 sm:pb-36" : ""}`}
+    >
       {!embed && (
-        <header className="mb-6">
-          <p className="num text-[11px] uppercase tracking-[0.2em] text-eng">Live architecture race</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
-            <span className="text-naive">Naive AI</span> <span className="text-mute">vs.</span>{" "}
-            <span className="text-eng">Engineered AI</span>
-          </h1>
-          <p className="mt-2 max-w-3xl text-sm text-mute">
-            Same question, same model, two architectures, streamed side by side. Pick a domain and a prompt, then watch
-            where a raw LLM wrapper breaks and what a production pipeline does about it.
-          </p>
+        <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="num text-[11px] uppercase tracking-[0.2em] text-eng">Live architecture race</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
+              <span className="text-naive">Naive AI</span> <span className="text-mute">vs.</span>{" "}
+              <span className="text-eng">Engineered AI</span>
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm text-mute">
+              Same question, same model, two architectures, streamed side by side. Pick a domain and a prompt, then watch
+              where a raw LLM wrapper breaks and what a production pipeline does about it.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void startTour()}
+            disabled={busy || tour.active}
+            className="min-h-[44px] shrink-0 self-start rounded-lg border border-eng/50 bg-eng/10 px-4 text-sm font-semibold text-eng transition-colors hover:bg-eng/20 disabled:cursor-not-allowed disabled:opacity-40 sm:self-auto"
+          >
+            ▶ Pitch mode
+          </button>
         </header>
       )}
       {!embed && <ValuePitch />}
@@ -295,7 +375,10 @@ export function RaceArena() {
           onRun={run}
           onCacheTest={() => void runCacheTest()}
           onFollowUp={runFollowUp}
-          onToggleKb={() => setKbOpen((o) => !o)}
+          onToggleKb={() => {
+            setKbFocus(null);
+            setKbOpen((o) => !o);
+          }}
         />
         <ParityStrip domain={domain} modelMode={modelMode} contextMode={contextMode} naive={naive.state} eng={eng.state} />
       </div>
@@ -304,7 +387,7 @@ export function RaceArena() {
 
       <main className="grid gap-4 lg:grid-cols-2">
         <NaivePanel run={naive.state} elapsedMs={naiveClock} inspectOpen={payloadOpen} onInspect={togglePayload} />
-        <EngineeredPanel run={eng.state} elapsedMs={engClock} inspectOpen={payloadOpen} onInspect={togglePayload} />
+        <EngineeredPanel run={eng.state} elapsedMs={engClock} inspectOpen={payloadOpen} onInspect={togglePayload} onCite={openCitation} />
       </main>
 
       <div ref={payloadRef}>
@@ -332,7 +415,20 @@ export function RaceArena() {
         </footer>
       )}
 
-      <KnowledgeDrawer domain={domainId} open={kbOpen} onClose={() => setKbOpen(false)} retrievedDocIds={retrievedDocIds} />
+      {tour.view && (
+        <PitchTour view={tour.view} paused={tour.paused} onPause={tour.togglePause} onNext={tour.next} onExit={tour.exit} />
+      )}
+
+      <KnowledgeDrawer
+        domain={domainId}
+        open={kbOpen}
+        onClose={() => {
+          setKbOpen(false);
+          setKbFocus(null);
+        }}
+        retrievedDocIds={retrievedDocIds}
+        focus={kbFocus}
+      />
     </div>
   );
 }

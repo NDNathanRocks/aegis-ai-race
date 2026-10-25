@@ -8,7 +8,7 @@ Compensation is owed per passenger, based on the arrival delay at the final dest
 - Arrival delay of 3 hours or more but less than 6 hours: CAD $400.
 - Arrival delay of 6 hours or more but less than 9 hours: CAD $700.
 - Arrival delay of 9 hours or more: CAD $1,000.
-Small carriers pay CAD $125, $250 and $500 for the same three bands. A crew scheduling shortage is within the carrier's control. A crew scheduling shortage is not a safety exemption: the carrier owes the full compensation.
+On a large carrier, a flight must be delayed 3 hours or more to qualify for APPR compensation. Small carriers pay CAD $125, $250 and $500 for the same three bands. A crew scheduling shortage is within the carrier's control. A crew scheduling shortage is not a safety exemption: the carrier owes the full compensation.
 
 ## 3. Safety-required events
 Genuine safety events, such as an urgent safety repair, are treated differently from staffing problems. A carrier cannot relabel a scheduling problem as a safety matter to avoid paying.

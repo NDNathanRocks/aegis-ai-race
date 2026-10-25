@@ -48,6 +48,10 @@ def test_hallucination_trap_engineered_catches_the_math(run_race):
     assert card["kind"] == "invoice_audit" and card["verdict"] == "overbilled"
     assert Decimal(str(card["total_discrepancy_usd"])) == findings_sum == Decimal(9600)
     assert set(card["citations"]) <= set(retrieved)
+    # The card carries exactly the passages it cites, so the UI can open each citation at its source.
+    sources = by_type(ev, "card")[0]["sources"]
+    assert {s["chunk_id"] for s in sources} == set(card["citations"])
+    assert all(s["text"] == retrieved[s["chunk_id"]]["text"] for s in sources)
     assert json.loads(by_type(ev, "card")[0]["raw_json"])["invoice_id"] == "INV-2291"
 
     triad = by_type(ev, "eval")[0]
@@ -88,6 +92,9 @@ def test_semantic_cache_paraphrase_hits_for_free(run_race):
     assert d2["total_ms"] < 250  # real embedding + lookup; typically ~10-20 ms
     assert d1["usage"]["cost_usd"] > 0
     assert by_type(second, "card")[0]["card"] == by_type(first, "card")[0]["card"]
+    # No retrieval ran on the hit, yet the cited passages still come back with the cached card.
+    assert by_type(second, "card")[0]["sources"] == by_type(first, "card")[0]["sources"]
+    assert by_type(second, "card")[0]["sources"]
     assert by_type(second, "eval")[0]["schema_validity"] == 1.0
     assert not by_type(second, "token")
 
@@ -255,3 +262,13 @@ def test_model_mode_8b_gives_both_sides_the_same_model(run_race):
     assert by_type(e, "payload")[0]["model"] == by_type(n, "payload")[0]["model"] == "llama-3.1-8b-instant"
     # naive full_kb dwarfs the engineered payload: that is the point of the demo
     assert by_type(n, "payload")[0]["token_count"] > by_type(e, "payload")[0]["token_count"]
+
+
+@pytest.mark.parametrize("kind", ["tier1_router", "prompt_injection"])
+@pytest.mark.parametrize("domain", DOMAIN_IDS)
+def test_every_engineered_preset_is_correct_in_demo(run_race, domain, kind):
+    """Pitch mode plays these presets; a demo-mode engineered answer marked Incorrect undermines the whole pitch."""
+    p = _preset(domain, kind)
+    ev = run_race("engineered", p.query, p.id, domain=domain, session_id=f"all-{domain}-{kind}")
+    v = by_type(ev, "verdict")[0]
+    assert v["correct"] is True, (domain, kind, [r for r in v["required"] if not r["found"]], by_type(ev, "card"))

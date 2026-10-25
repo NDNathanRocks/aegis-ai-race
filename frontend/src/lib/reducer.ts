@@ -115,6 +115,7 @@ export interface EngineeredRun extends RunBase {
   validation: ValidatorResult | null;
   card: StructuredCard | null;
   rawJson: string | null;
+  sources: RetrievedChunk[];
   triad: TriadScores | null;
   cacheHit: boolean;
   hallucinationPrevented: boolean;
@@ -172,6 +173,7 @@ export const initialEngineered = (): EngineeredRun => ({
   validation: null,
   card: null,
   rawJson: null,
+  sources: [],
   triad: null,
   cacheHit: false,
   hallucinationPrevented: false,
@@ -297,7 +299,7 @@ export function engineeredReducer(state: EngineeredRun, action: Action): Enginee
           };
         }
         case "card":
-          return { ...state, card: e.data.card, rawJson: e.data.raw_json };
+          return { ...state, card: e.data.card, rawJson: e.data.raw_json, sources: e.data.sources ?? [] };
         case "eval":
           return { ...state, triad: e.data };
         case "done":

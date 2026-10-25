@@ -265,6 +265,8 @@ export interface TokenData extends Common {
 export interface CardData extends Common {
   card: StructuredCard;
   raw_json: string;
+  /** The retrieved passages the card cites (also present on a cache hit, when no retrieval ran). */
+  sources?: RetrievedChunk[];
 }
 export type EvalData = Common & TriadScores;
 export interface NaiveAnalysisData extends Common {
