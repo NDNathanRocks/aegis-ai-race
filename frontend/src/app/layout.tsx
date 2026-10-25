@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Naive AI vs. Engineered AI: Live Architecture Race",
   description:
-    "A live split-screen race between a naive LLM wrapper and an engineered AI platform: hybrid RAG, semantic cache, model routing, critic agent and schema enforcement.",
+    "A live split-screen race between a naive LLM wrapper and an engineered AI platform: DualSight hybrid retrieval, semantic cache, model routing, critic agent and schema enforcement.",
 };
 
 export const viewport: Viewport = {

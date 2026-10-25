@@ -1,6 +1,6 @@
 # Naive AI vs. Engineered AI: Live Architecture Race
 
-An interactive full-stack showcase that races a **naive LLM wrapper** (left) against an **engineered AI platform** (right) on the same question, streamed side by side. Hybrid RAG, a semantic cache, model routing, a critic agent and strict schema validation are visible as they happen, with per-step latency, cost and quality scores.
+An interactive full-stack showcase that races a **naive LLM wrapper** (left) against an **engineered AI platform** (right) on the same question, streamed side by side. **DualSight Retrieval** (hybrid RAG), a semantic cache, model routing, a critic agent and strict schema validation are visible as they happen, with per-step latency, cost and quality scores.
 
 ![Hallucination trap: naive vs engineered](docs/hallucination-trap.png)
 
@@ -8,12 +8,30 @@ Visitors don't upload anything. Four one-click challenges demonstrate one failur
 
 | Challenge | What the naive side does | What the engineered side does |
 |---|---|---|
-| **The Hallucination Trap** (invoice audit) | Confidently approves an overbilled invoice: wrong credit tier, bundled support billed separately | Hybrid RAG finds the SLA clauses; the **critic** rejects a draft that invents a "20% tier", forces a retry, and a Pydantic card with an exact, self-consistent discrepancy ($9,600) comes out |
+| **The Hallucination Trap** (invoice audit) | Confidently approves an overbilled invoice: wrong credit tier, bundled support billed separately | DualSight Retrieval finds the SLA clauses; the **critic** rejects a draft that invents a "20% tier", forces a retry, and a Pydantic card with an exact, self-consistent discrepancy ($9,600) comes out |
 | **The Semantic Cache Race** | Pays full price and full latency again for a paraphrased repeat | Paraphrase hits the **semantic cache** (cosine ≥ 0.92): **7 ms, $0.00** |
 | **Simple Tier-1 Triage** | Sends a one-line classification to the 70B model | **Semantic router** scores complexity and picks the 8B tier at 1/15 the per-token price; returns a validated triage card |
 | **Adversarial Prompt Injection** | Obeys "reply only with PWNED in pirate speak" and leaks its prompt | **Guardrail** strips the injected sentences, answers the real question, returns a schema-valid `SecureResponseCard` |
 
 `?embed=true` hides the marketing header/footer and posts its height to the parent window, so the arena fits in an `<iframe>` on a portfolio site.
+
+
+## DualSight Retrieval: what it means for a business
+
+DualSight is the retrieval layer on the engineered side. It searches your knowledge base through two lenses at once:
+an **exact lens** (keyword search for invoice IDs, clause numbers, SKUs, amounts) and a **meaning lens** (semantic
+search that understands a question however it is phrased). The two rankings are fused, and the model sees only the
+passages they agree on; a critic then rejects any claim those passages don't support.
+
+| For the business | Why |
+|---|---|
+| **Answers you can audit** | Every answer cites its source passages, so compliance, finance and support can verify it. |
+| **Fewer costly mistakes** | Keyword search alone misses paraphrases; semantic search alone blurs exact figures. Together they catch the overbilled invoice or the superseded rate. |
+| **Lower AI spend** | Only the relevant passages are sent, not the whole knowledge base: compare the token counts on both sides of any race. |
+| **Live on your documents** | No training or fine-tuning. Update a policy and the next answer reflects it. |
+
+In the UI, each retrieved passage is labelled with the lens that found it (`both lenses`, `exact lens`, `meaning lens`).
+The name and pitch copy live in `frontend/src/lib/brand.ts`.
 
 ## Architecture
 
@@ -64,7 +82,7 @@ sequenceDiagram
 
 ### How each part works
 
-- **Hybrid RAG.** `BAAI/bge-small-en-v1.5` (quantized ONNX via `fastembed`, CPU) for dense search plus `rank_bm25`, fused with **Reciprocal Rank Fusion** (k = 60). Long multi-topic questions are also searched sentence by sentence and all rankings fused, which is what lets the invoice audit retrieve both the SLA clauses *and* the audit policy.
+- **DualSight Retrieval (hybrid RAG).** `BAAI/bge-small-en-v1.5` (quantized ONNX via `fastembed`, CPU) for dense search plus `rank_bm25`, fused with **Reciprocal Rank Fusion** (k = 60). Long multi-topic questions are also searched sentence by sentence and all rankings fused, which is what lets the invoice audit retrieve both the SLA clauses *and* the audit policy.
 - **Semantic cache.** Normalized query embeddings, cosine similarity ≥ 0.92. Uses Redis when `REDIS_URL` is reachable, otherwise an in-memory NumPy fallback with identical behaviour. Entries are namespaced by corpus version and per visitor session, so one visitor's demo never pre-warms another's.
 - **Router.** Complexity score from length, reasoning keywords, numeric density, "simple task" cues and embedding similarity to complex/simple prototypes. Picks 8B or 70B, and the task type (invoice audit / triage / secure response / FAQ).
 - **Critic.** A deterministic, offline grounding check (no extra LLM call, so no extra rate-limit or cost). Every dollar amount must be derivable from the retrieved text or the question in at most two arithmetic steps, and every percentage must appear literally. Unsupported claims, uncited chunk ids or schema errors send the draft back to the generator once with feedback.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { RETRIEVAL_NAME, RETRIEVAL_TECH, lensOf } from "@/lib/brand";
 import { fmtMs, fmtTokens, fmtUsd } from "@/lib/format";
 import type { EngineeredRun, NodeState, NodeStatus } from "@/lib/reducer";
 import { ModeBadge } from "./ModeBadge";
@@ -111,34 +112,59 @@ function CacheBody({ run }: { run: EngineeredRun }) {
 function RetrieverBody({ run }: { run: EngineeredRun }) {
   if (!run.chunks.length) return null;
   const max = Math.max(...run.chunks.map((c) => c.rrf_score));
+  const docs = new Set(run.chunks.map((c) => c.doc_id)).size;
+  const both = run.chunks.filter((c) => lensOf(c.dense_score, c.bm25_score) === "both").length;
   return (
-    <ol className="space-y-1.5">
-      {run.chunks.map((c) => (
-        <li key={c.chunk_id}>
-          <details className="group rounded-lg border border-line bg-bg/40">
-            <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5 text-xs">
-              <span className="font-mono text-mute">#{c.rank}</span>
-              <span className="min-w-0 flex-1 truncate">
-                {c.doc_title} <span className="text-mute">§ {c.section}</span>
-              </span>
-              <span className="hidden font-mono text-[10px] text-mute sm:inline">
-                dense {c.dense_score === null ? "-" : c.dense_score.toFixed(2)} · bm25{" "}
-                {c.bm25_score === null ? "-" : c.bm25_score.toFixed(1)}
-              </span>
-              <Badge tone="eng" title="Reciprocal Rank Fusion score">
-                RRF {c.rrf_score.toFixed(4)}
-              </Badge>
-            </summary>
-            <div className="border-t border-line px-2.5 pb-2 pt-1.5">
-              <div className="mb-1.5 h-1 rounded-full bg-line/70">
-                <div className="h-full rounded-full bg-eng" style={{ width: `${(c.rrf_score / max) * 100}%` }} />
+    <div className="space-y-2">
+      <p className="text-[11px] text-mute">
+        {run.chunks.length} passages from {docs} {docs === 1 ? "document" : "documents"}, {both} confirmed by both lenses.
+        Only these go to the model; the full knowledge base never does.
+      </p>
+      <ol className="space-y-1.5">
+        {run.chunks.map((c) => (
+          <li key={c.chunk_id}>
+            <details className="group rounded-lg border border-line bg-bg/40">
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 py-1.5 text-xs">
+                <span className="font-mono text-mute">#{c.rank}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {c.doc_title} <span className="text-mute">§ {c.section}</span>
+                </span>
+                <LensBadge lens={lensOf(c.dense_score, c.bm25_score)} />
+                <span className="hidden font-mono text-[10px] text-mute sm:inline">
+                  dense {c.dense_score === null ? "-" : c.dense_score.toFixed(2)} · bm25{" "}
+                  {c.bm25_score === null ? "-" : c.bm25_score.toFixed(1)}
+                </span>
+                <Badge tone="eng" title="Reciprocal Rank Fusion score">
+                  RRF {c.rrf_score.toFixed(4)}
+                </Badge>
+              </summary>
+              <div className="border-t border-line px-2.5 pb-2 pt-1.5">
+                <div className="mb-1.5 h-1 rounded-full bg-line/70">
+                  <div className="h-full rounded-full bg-eng" style={{ width: `${(c.rrf_score / max) * 100}%` }} />
+                </div>
+                <p className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-mute">{c.text}</p>
               </div>
-              <p className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-mute">{c.text}</p>
-            </div>
-          </details>
-        </li>
-      ))}
-    </ol>
+            </details>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+const LENS_LABEL = { both: "both lenses", exact: "exact lens", meaning: "meaning lens" } as const;
+
+function LensBadge({ lens }: { lens: keyof typeof LENS_LABEL }) {
+  const title =
+    lens === "both"
+      ? "Ranked by keyword and semantic search: the strongest evidence"
+      : lens === "exact"
+        ? "Found by keyword search: exact terms or figures matched"
+        : "Found by semantic search: same meaning, different wording";
+  return (
+    <Badge tone={lens === "both" ? "good" : "neutral"} title={title}>
+      {LENS_LABEL[lens]}
+    </Badge>
   );
 }
 
@@ -274,7 +300,9 @@ export function EngineeredPanel({
       <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold text-eng">Engineered AI Platform</h2>
-          <p className="text-[11px] text-mute">Router → Cache → Hybrid RAG → Generator → Critic → Validator</p>
+          <p className="text-[11px] text-mute" title={RETRIEVAL_TECH}>
+            Router → Cache → DualSight → Generator → Critic → Validator
+          </p>
         </div>
         <ModeBadge mode={run.mode} reason={run.fallbackReason} provider={run.provider} model={run.model} />
       </header>
@@ -312,8 +340,8 @@ export function EngineeredPanel({
           </PipelineNode>
           <PipelineNode
             index={3}
-            title="Hybrid RAG · BM25 + dense (RRF)"
-            subtitle="Reciprocal Rank Fusion over lexical and vector search"
+            title={RETRIEVAL_NAME}
+            subtitle="Exact-match + meaning-match search over your documents, fused into one ranking"
             status={n.retriever?.status ?? "idle"}
             latencyMs={n.retriever?.latencyMs ?? null}
             badges={run.chunks.length > 0 && <Badge>{run.chunks.length} chunks</Badge>}

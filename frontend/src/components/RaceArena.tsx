@@ -21,6 +21,7 @@ import { PayloadDrawer } from "./PayloadDrawer";
 import { PromptCards, PromptEditor } from "./PromptCards";
 import { RaceConfigBar } from "./RaceConfigBar";
 import { Scoreboard } from "./Scoreboard";
+import { ValuePitch } from "./ValuePitch";
 import { VerdictBar } from "./VerdictBar";
 
 const BOARD_KEY = "aegis:scoreboard";
@@ -246,6 +247,7 @@ export function RaceArena() {
           </p>
         </header>
       )}
+      {!embed && <ValuePitch />}
 
       <div className="space-y-3">
         <DomainSwitcher domains={domains} active={domainId} disabled={busy} onSelect={(d) => switchDomain(d)} />
@@ -320,7 +322,7 @@ export function RaceArena() {
       {!embed && (
         <footer className="mt-8 border-t border-line pt-4 text-xs text-mute">
           <p>
-            Retrieval (BM25 + <span className="font-mono">bge-small</span> ONNX, fused with RRF), the semantic cache,
+            DualSight Retrieval (BM25 + <span className="font-mono">bge-small</span> ONNX, fused with RRF), the semantic cache,
             Pydantic validation and the RAG-triad scoring always run for real. In <span className="text-warn">DEMO</span>{" "}
             mode only the LLM text is a deterministic simulation; with a Groq key it is live. Token counts prefixed with{" "}
             <span className="num">~</span> are estimates; unprefixed counts come from the provider. Cost is priced at a

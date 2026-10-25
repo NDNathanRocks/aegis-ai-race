@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { lensOf } from "@/lib/brand";
 import { compareRuns, correctAnswerSummary, inputRatio, sentTokens } from "@/lib/compare";
 import {
   B2B_DOMAIN,
@@ -339,5 +340,14 @@ describe("mock scenarios", () => {
     const n = playNaive(reqFor("nutrition", 1, { model_mode: "auto" }), "live").s;
     expect(e.model).toBe("8B/70B routed");
     expect(n.model).toBe("llama-3.3-70b-versatile");
+  });
+});
+
+
+describe("DualSight lens attribution", () => {
+  it("labels a passage by which search ranked it", () => {
+    expect(lensOf(0.81, 12.4)).toBe("both");
+    expect(lensOf(null, 9.1)).toBe("exact");
+    expect(lensOf(0.77, null)).toBe("meaning");
   });
 });
