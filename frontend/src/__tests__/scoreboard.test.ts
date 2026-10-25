@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { inlineBold, segmentize } from "@/lib/highlight";
 import { engineeredReducer, initialEngineered, initialNaive, naiveReducer, type EngineeredRun, type NaiveRun } from "@/lib/reducer";
-import { addRace, emptyScoreboard, parseScoreboard } from "@/lib/scoreboard";
+import { addRace, costPerCorrect, emptyScoreboard, parseScoreboard } from "@/lib/scoreboard";
 import { fmtMs, fmtUsd } from "@/lib/format";
 
 const common = { run_id: "r", side: "naive" as const, t_ms: 1 };
@@ -102,5 +102,35 @@ describe("format", () => {
     expect(fmtUsd(0)).toBe("$0.00");
     expect(fmtUsd(0.00055)).toBe("$0.0006");
     expect(fmtUsd(0.000012)).toBe("$0.000012");
+  });
+
+  it("ranks cost per correct answer: a cheap wrong answer is not a saving", () => {
+    const verdict = (correct: boolean) => ({
+      event: "verdict" as const,
+      data: { ...common, correct, required: [], forbidden_hits: [], key_applies: true },
+    });
+    const naive = naiveReducer(naiveDone(5000, 0.003), { type: "event", event: verdict(false) });
+    const eng = engineeredReducer(engDone(6000, 0.03, true), { type: "event", event: { ...verdict(true), data: { ...verdict(true).data, side: "engineered" } } });
+    const b = addRace(emptyScoreboard(), naive, eng);
+    expect(b.costSavedUsd).toBeLessThan(0); // raw cost says engineered lost...
+    expect(b.judged).toBe(1);
+    expect(costPerCorrect(b.naive)).toBeNull(); // ...but naive bought no correct answer at all
+    expect(costPerCorrect(b.eng)).toBeCloseTo(0.03);
+    expect(b.naive.wrongSpendUsd).toBeCloseTo(0.003);
+    expect(b.eng.wrongSpendUsd).toBe(0);
+  });
+
+  it("does not judge races without a verdict on both sides", () => {
+    const b = addRace(emptyScoreboard(), naiveDone(5000, 0.003), engDone(12, 0, false));
+    expect(b.races).toBe(1);
+    expect(b.judged).toBe(0);
+    expect(b.naive.spendUsd).toBe(0);
+  });
+
+  it("reads boards saved before per-side tallies existed", () => {
+    const b = parseScoreboard('{"races":3,"costSavedUsd":0.01}');
+    expect(b.races).toBe(3);
+    expect(b.judged).toBe(0);
+    expect(b.naive).toEqual({ spendUsd: 0, correct: 0, wrongSpendUsd: 0 });
   });
 });

@@ -43,8 +43,8 @@ export const OUTCOMES: Outcome[] = [
     body: "Keyword search alone misses paraphrases; AI search alone blurs exact figures. Using both is what catches the overbilled invoice or the superseded rate.",
   },
   {
-    title: "Lower AI spend",
-    body: "Only the relevant passages are sent to the model, not the whole knowledge base, so each question uses a fraction of the tokens. Watch the token counter on both sides.",
+    title: "Pay for right answers",
+    body: "A cheap wrong answer is the most expensive kind. Sending only the relevant passages usually cuts input tokens; on hard questions it may spend more to get it right. The scoreboard tracks cost per correct answer.",
   },
   {
     title: "Live on your documents",

@@ -29,7 +29,7 @@ passages they agree on; a critic then rejects any claim those passages don't sup
 |---|---|
 | **Answers you can audit** | Every answer cites its source passages, so compliance, finance and support can verify it. |
 | **Fewer costly mistakes** | Keyword search alone misses paraphrases; semantic search alone blurs exact figures. Together they catch the overbilled invoice or the superseded rate. |
-| **Lower AI spend** | Only the relevant passages are sent, not the whole knowledge base: compare the token counts on both sides of any race. |
+| **Pay for right answers** | Only the relevant passages are sent, which usually cuts input tokens. On hard questions the critic may retry and spend more, so the scoreboard ranks **cost per correct answer** (spend ÷ answers that pass the answer key) rather than raw cost. |
 | **Live on your documents** | No training or fine-tuning. Update a policy and the next answer reflects it. |
 
 In the UI, each retrieved passage is labelled with the lens that found it (`both lenses`, `exact lens`, `meaning lens`).

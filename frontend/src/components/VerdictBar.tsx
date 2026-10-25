@@ -73,6 +73,21 @@ export function VerdictBar({ naive, eng }: { naive: NaiveRun; eng: EngineeredRun
         <Delta label="Time" value={d.ms === null ? "-" : `${d.ms >= 0 ? "-" : "+"}${fmtMs(Math.abs(d.ms))}`} good={d.ms === null ? null : d.ms >= 0} />
         <Delta label="Cost" value={`${d.usd >= 0 ? "-" : "+"}${fmtUsd(Math.abs(d.usd))}`} good={d.usd >= 0} />
       </div>
+      {naive.verdict && eng.verdict && naive.verdict.correct !== eng.verdict.correct && (
+        <p className="mt-2 text-[12px] text-mute">
+          {eng.verdict.correct ? (
+            <>
+              Naive paid <span className="num text-naive">{fmtUsd(naive.costUsd)}</span> for a wrong answer; Engineered paid{" "}
+              <span className="num text-eng">{fmtUsd(eng.costUsd)}</span> for a correct one.
+            </>
+          ) : (
+            <>
+              Engineered missed this one (<span className="num">{fmtUsd(eng.costUsd)}</span>); Naive got it right for{" "}
+              <span className="num">{fmtUsd(naive.costUsd)}</span>.
+            </>
+          )}
+        </p>
+      )}
       {(naive.degraded || eng.degraded) && <p className="mt-2 text-[11px] text-warn">Degraded race: shown for reference, not counted on the scoreboard.</p>}
     </section>
   );
