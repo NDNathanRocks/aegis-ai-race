@@ -22,3 +22,8 @@ Audited the v2 diff against the running backend (demo mode, no Groq key) and the
 | **SQL** | pgvector table names go through `psycopg.sql.Identifier` (they were already regex-validated). |
 | **Errors** | SSE `internal_error` carries a generic message; details are logged server-side. |
 | **Repo hygiene** | Full git history scanned for key patterns and secret-like files: none found. `.env.*` and `.playwright-mcp/` are gitignored. Containers run as non-root; the compose Redis/Postgres publish no host ports. |
+
+## Dependency audit (2026-10-25)
+- **npm:** `npm audit --omit=dev` flagged `postcss` bundled inside Next 15.5.28 (the latest 15.x). `package.json` now has `overrides: { postcss: ^8.5.30 }`; audit reports 0 vulnerabilities, and tsc, vitest and `next build` pass.
+- **Python:** `pip-audit` found 44 advisories in three transitive packages (pillow via fastembed, filelock, certifi). Floors added to `pyproject.toml` (`pillow>=13.0.0`, `filelock>=4.2.1`, `certifi>=2026.10.19`); re-audit is clean and all 282 tests pass.
+- **CI:** both audits now run on every push (`npm audit --audit-level=high`, `pip-audit`).

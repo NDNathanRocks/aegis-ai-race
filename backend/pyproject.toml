@@ -13,6 +13,10 @@ dependencies = [
   "fastembed>=0.4",
   "langgraph>=0.2",
   "redis>=5.0",
+  # Security floors for transitive dependencies (pip-audit, 2026-10-25): fastembed pulls pillow; httpx pulls certifi.
+  "pillow>=13.0.0",
+  "filelock>=4.2.1",
+  "certifi>=2026.10.19",
 ]
 
 [project.optional-dependencies]
