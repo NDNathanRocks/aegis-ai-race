@@ -13,6 +13,7 @@ from app.rag.cache import SemanticCache, build_cache
 from app.rag.embeddings import Embedder, get_embedder
 
 MAX_SESSIONS = 256
+REDIS_RETRY_S = 30.0  # after a failed Redis ping, skip Redis this long (pings block the event loop)
 
 _COMPLEX_PROTOTYPES = [
     "Audit this invoice and compute the discrepancy against the contract terms",
@@ -34,6 +35,7 @@ class AppContext:
     version: str
     _caches: OrderedDict[tuple[str, str], SemanticCache] = field(default_factory=OrderedDict)
     _protos: tuple[np.ndarray, np.ndarray] | None = None
+    _redis_down_until: float = 0.0  # monotonic
 
     def runtime(self, domain: str) -> dom.DomainRuntime:
         try:
@@ -48,7 +50,10 @@ class AppContext:
         if key in self._caches:
             self._caches.move_to_end(key)
             return self._caches[key]
-        cache = build_cache(self.settings, f"{self.version}:{domain}:{key[1]}")
+        try_redis = time.monotonic() >= self._redis_down_until
+        cache = build_cache(self.settings, f"{self.version}:{domain}:{key[1]}", try_redis)
+        if self.settings.redis_url and try_redis and cache.backend == "memory":
+            self._redis_down_until = time.monotonic() + REDIS_RETRY_S
         self._caches[key] = cache
         while len(self._caches) > MAX_SESSIONS * 4:
             self._caches.popitem(last=False)

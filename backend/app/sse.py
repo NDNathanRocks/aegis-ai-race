@@ -1,6 +1,7 @@
 """Server-Sent Events helpers: framing, heartbeat, run clock."""
 import asyncio
 import json
+import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -12,6 +13,7 @@ SSE_HEADERS = {
     "X-Accel-Buffering": "no",  # disable nginx/HF proxy buffering
 }
 HEARTBEAT_S = 15.0
+log = logging.getLogger("aegis.sse")
 
 
 class Emitter:
@@ -58,8 +60,11 @@ async def sse_stream(events: AsyncIterator[dict[str, Any]], emitter: Emitter) ->
             yield format_sse(emitter.event("error", code="no_terminal_event", message="stream ended early", recoverable=True))
     except asyncio.CancelledError:
         raise
-    except Exception as e:  # never leave the client hanging without a terminal frame
-        yield format_sse(emitter.event("error", code="internal_error", message=str(e)[:200], recoverable=False))
+    except Exception:  # never leave the client hanging without a terminal frame; details stay in the server log
+        log.exception("race stream failed (run_id=%s side=%s)", emitter.run_id, emitter.side)
+        yield format_sse(
+            emitter.event("error", code="internal_error", message="Internal error while streaming", recoverable=False)
+        )
     finally:
         if pending is not None:
             pending.cancel()

@@ -188,6 +188,8 @@ class LLMGateway:
             owner=client_key,
             sides={side} if side else set(),
         )
+        # A foreign/replayed race_id gets an unregistered run, so its sides decide the provider independently and
+        # each charges the live budget. Intentional: it fails safe and a race_id can never borrow another's run.
         if race_id and existing is None:  # never displace another client's run
             self._runs[race_id] = run
             while len(self._runs) > self.settings.race_registry_max:

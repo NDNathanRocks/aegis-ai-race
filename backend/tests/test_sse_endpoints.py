@@ -138,13 +138,15 @@ def test_live_failure_mid_stream_emits_fallback_and_still_completes():
         assert [d["degraded"] for e, d in ev if e == "race_state"][-1] is True
 
 
-def test_internal_failure_yields_terminal_error_event(client, monkeypatch):
+def test_internal_failure_yields_terminal_error_event(client, monkeypatch, caplog):
     def boom(*a, **k):
         raise RuntimeError("index exploded")
 
     monkeypatch.setattr(client.app.state.ctx.domains["b2b_sla"].retriever, "retrieve", boom)
     _, ev = race(client, "engineered", "What is the on-call stipend?", session_id="boom-session")
-    assert ev[-1][0] == "error" and ev[-1][1]["code"] == "internal_error" and "index exploded" in ev[-1][1]["message"]
+    assert ev[-1][0] == "error" and ev[-1][1]["code"] == "internal_error"
+    assert "index exploded" not in ev[-1][1]["message"]  # exception text stays server-side
+    assert "index exploded" in caplog.text
 
 
 # --- sse_stream unit tests --------------------------------------------------------------------------------
@@ -185,3 +187,8 @@ async def test_client_disconnect_closes_the_source_generator():
     assert (await stream.__anext__()).startswith("event: meta")
     await stream.aclose()  # what Starlette does when the client goes away
     assert closed.is_set()
+
+
+def test_cors_exposes_retry_after(client):
+    r = client.get("/api/health", headers={"Origin": "http://localhost:3000"})
+    assert "retry-after" in r.headers.get("access-control-expose-headers", "").lower()

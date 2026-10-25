@@ -80,3 +80,52 @@ def test_redis_fallback_is_logged(caplog):
     with caplog.at_level("WARNING", logger="aegis.cache"):
         build_cache(Settings(redis_url="redis://127.0.0.1:1/0"), "ns")
     assert "using the in-memory semantic cache" in caplog.text
+
+
+def test_memory_cache_keeps_only_newest_entries():
+    c = MemorySemanticCache(0.92, max_entries=3)
+    for i in range(5):
+        c.store(f"q{i}", _unit(1, i), {"i": i})
+    assert len(c) == 3
+    assert c.lookup(_unit(1, 0)).matched_query != "q0"  # oldest evicted
+
+
+def test_memory_cache_concurrent_store_and_lookup():
+    import threading
+
+    c = MemorySemanticCache(0.92, max_entries=50)
+    errors = []
+
+    def writer():
+        for i in range(2000):
+            c.store("q", _unit(1, i % 7), {})
+
+    def reader():
+        try:
+            for _ in range(2000):
+                c.lookup(_unit(1, 0))
+        except Exception as e:  # pragma: no cover - the regression this guards against
+            errors.append(e)
+
+    ts = [threading.Thread(target=writer), threading.Thread(target=reader), threading.Thread(target=reader)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert not errors
+
+
+def test_redis_errors_after_connect_degrade_to_miss(caplog):
+    client = fakeredis.FakeRedis()
+    c = RedisSemanticCache(client, 0.92, namespace="down")
+    c.store("q", _unit(1, 0), {"v": 1})
+
+    def broken(*a, **k):
+        raise ConnectionError("redis went away")
+
+    client.scan_iter = broken
+    client.pipeline = broken
+    with caplog.at_level("WARNING", logger="aegis.cache"):
+        assert c.lookup(_unit(1, 0)).hit is False
+        c.store("q2", _unit(0, 1), {})  # must not raise
+    assert "treating as a cache miss" in caplog.text and "entry not cached" in caplog.text

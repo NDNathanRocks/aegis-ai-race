@@ -28,6 +28,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_origins=settings.cors_origin_list,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type"],
+        expose_headers=["Retry-After"],  # read by the frontend 429 countdown; hidden cross-origin otherwise
         max_age=600,
     )
     app.include_router(meta.router, prefix="/api")
