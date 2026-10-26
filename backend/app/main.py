@@ -23,7 +23,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.ready = True
         yield
 
-    app = FastAPI(title="Aegis: Naive AI vs Engineered AI", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="DualSight: Naive AI vs. Nathan's Engineered AI", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,

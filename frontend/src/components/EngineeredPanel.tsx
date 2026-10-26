@@ -299,10 +299,10 @@ export function EngineeredPanel({
   const retried = run.critic.length > 1 || run.nodes.generator.runs > 1;
 
   return (
-    <section aria-label="Engineered AI platform" className="flex min-w-0 flex-col rounded-2xl border border-eng/30 bg-panel">
+    <section aria-label="Nathan's Engineered AI" className="flex min-w-0 flex-col rounded-2xl border border-eng/30 bg-panel">
       <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold text-eng">Engineered AI Platform</h2>
+          <h2 className="text-sm font-semibold text-eng">Nathan&apos;s Engineered AI</h2>
           <p className="text-[11px] text-mute" title={RETRIEVAL_TECH}>
             Router → Cache → DualSight → Generator → Critic → Validator
           </p>

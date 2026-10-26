@@ -307,10 +307,10 @@ export function RaceArena() {
       {!embed && (
         <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="num text-[11px] uppercase tracking-[0.2em] text-eng">Live architecture race</p>
+            <p className="num text-[11px] uppercase tracking-[0.2em] text-eng">DualSight · Live architecture race</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">
               <span className="text-naive">Naive AI</span> <span className="text-mute">vs.</span>{" "}
-              <span className="text-eng">Engineered AI</span>
+              <span className="text-eng">Nathan&apos;s Engineered AI</span>
             </h1>
             <p className="mt-2 max-w-3xl text-sm text-mute">
               Same question, same model, two architectures, streamed side by side. Pick a domain and a prompt, then watch

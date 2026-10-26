@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Naive AI vs. Engineered AI: Live Architecture Race",
+  title: "DualSight: Naive AI vs. Nathan's Engineered AI",
   description:
     "A live split-screen race between a naive LLM wrapper and an engineered AI platform: DualSight hybrid retrieval, semantic cache, model routing, critic agent and schema enforcement.",
 };
