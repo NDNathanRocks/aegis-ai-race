@@ -2,6 +2,8 @@
 
 An interactive full-stack showcase that races a **naive LLM wrapper** (left) against **Nathan's Engineered AI** (right) on the same question, streamed side by side. **DualSight Retrieval** (hybrid RAG), a semantic cache, model routing, a critic agent and strict schema validation are visible as they happen, with per-step latency, cost and quality scores.
 
+**Live demo: [aegis-ai-race.vercel.app](https://aegis-ai-race.vercel.app/)** · [guided pitch tour](https://aegis-ai-race.vercel.app/?tour=1). The backend runs on Render.
+
 ![Hallucination trap: naive vs engineered](docs/hallucination-trap.png)
 
 Visitors don't upload anything. They pick a knowledge base and a one-click challenge, and each challenge demonstrates one failure mode. On the Enterprise B2B SLA knowledge base:
