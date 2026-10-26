@@ -74,6 +74,7 @@ class CacheLookup(BaseModel):
     threshold: float = 0.92
     backend: Literal["redis", "memory"] = "memory"
     matched_query: str | None = None
+    rejected: str | None = None  # why a lookup above the threshold was still treated as a miss
 
 
 # --- Structured outputs (Generator -> PydanticValidator) ---------------------
@@ -102,6 +103,8 @@ class InvoiceAuditCard(BaseModel):
     verdict: Literal["compliant", "overbilled", "underbilled", "needs_review"]
     findings: list[InvoiceLineFinding]
     total_discrepancy_usd: Money
+    billed_total_usd: Money
+    approved_payout_usd: Money
     citations: list[str] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -109,6 +112,11 @@ class InvoiceAuditCard(BaseModel):
         total = sum((f.discrepancy_usd for f in self.findings), Decimal(0))
         if total != self.total_discrepancy_usd:
             raise ValueError(f"total_discrepancy_usd {self.total_discrepancy_usd} != sum of findings {total}")
+        if self.billed_total_usd - self.total_discrepancy_usd != self.approved_payout_usd:
+            raise ValueError(
+                f"approved_payout_usd {self.approved_payout_usd} != billed_total_usd {self.billed_total_usd}"
+                f" - total_discrepancy_usd {self.total_discrepancy_usd}"
+            )
         expected = "compliant" if total == 0 else "overbilled" if total > 0 else "underbilled"
         if self.verdict not in (expected, "needs_review"):
             raise ValueError(f"verdict {self.verdict} inconsistent with discrepancy {total}")

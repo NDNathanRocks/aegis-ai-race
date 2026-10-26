@@ -1,0 +1,47 @@
+{
+  "description": "Query pairs for the semantic-cache threshold sweep. 'same': the second query is a rewording whose correct answer is identical, so a cache hit is right. 'different': the wording is close but the correct answer changes, so a cache hit would serve a wrong answer. '@hero' means the domain's hallucination-trap prompt and '@paraphrase' its built-in paraphrase; 'replace' edits the anchor to make the probe.",
+  "pairs": [
+    {"domain": "travel_appr", "label": "same", "a": "@hero", "b": "@paraphrase"},
+    {"domain": "travel_appr", "label": "same", "a": "How long must a flight be delayed to get APPR compensation on a large carrier?", "b": "What's the minimum delay before a big airline owes APPR compensation?"},
+    {"domain": "travel_appr", "label": "same", "a": "What is the free checked baggage allowance for a Star Alliance Gold member on an international Air Canada flight?", "b": "How many free checked bags does a Star Alliance Gold flyer get on an Air Canada international trip?"},
+    {"domain": "travel_appr", "label": "same", "a": "When do Aeroplan points expire?", "b": "How long until my Aeroplan points expire if my account is inactive?"},
+    {"domain": "travel_appr", "label": "same", "a": "How long do I have to report a delayed bag?", "b": "What's the deadline for filing a delayed baggage claim?"},
+    {"domain": "travel_appr", "label": "different", "a": "@hero", "replace": ["I am travelling as 1 passenger", "I am travelling as 3 passengers"]},
+    {"domain": "travel_appr", "label": "different", "a": "@hero", "replace": ["delayed by 6.5 hours", "delayed by 9.5 hours"]},
+    {"domain": "travel_appr", "label": "different", "a": "What does APPR pay for a 6 hour delay on a large carrier?", "b": "What does APPR pay for a 9 hour delay on a large carrier?"},
+    {"domain": "travel_appr", "label": "different", "a": "What does APPR pay for a 4 hour delay on a large carrier?", "b": "What does APPR pay for a 4 hour delay on a small carrier?"},
+    {"domain": "travel_appr", "label": "different", "a": "What is the free checked baggage allowance for a Star Alliance Gold member on an international Air Canada flight?", "b": "What is the free checked baggage allowance for a Star Alliance Gold member on a domestic Air Canada flight?"},
+    {"domain": "travel_appr", "label": "different", "a": "Can I cancel my Air Canada ticket for free within 24 hours of booking?", "b": "Can I cancel my Air Canada ticket for free 3 days after booking?"},
+
+    {"domain": "bc_tenancy_cra", "label": "same", "a": "@hero", "b": "@paraphrase"},
+    {"domain": "bc_tenancy_cra", "label": "same", "a": "How much notice must a BC landlord give for a rent increase?", "b": "How many months' notice does a landlord in BC need to give before raising rent?"},
+    {"domain": "bc_tenancy_cra", "label": "same", "a": "What is the TFSA over-contribution penalty rate?", "b": "How much does the CRA charge per month on excess TFSA contributions?"},
+    {"domain": "bc_tenancy_cra", "label": "same", "a": "Can my landlord evict me so his cousin can move in?", "b": "Is a cousin moving in a valid reason for my BC landlord to end my tenancy?"},
+    {"domain": "bc_tenancy_cra", "label": "different", "a": "@hero", "replace": ["increases by 6% ($2,544)", "increases by 2% ($2,448)"]},
+    {"domain": "bc_tenancy_cra", "label": "different", "a": "@hero", "replace": ["for 3 months before", "for 8 months before"]},
+    {"domain": "bc_tenancy_cra", "label": "different", "a": "What is the BC allowable rent increase for 2026?", "b": "What is the BC allowable rent increase for 2027?"},
+    {"domain": "bc_tenancy_cra", "label": "different", "a": "Can my landlord evict me so his cousin can move in?", "b": "Can my landlord evict me so his daughter can move in?"},
+    {"domain": "bc_tenancy_cra", "label": "different", "a": "What is the TFSA penalty on a $4,500 excess held for 3 months?", "b": "What is the TFSA penalty on a $4,500 excess held for 1 month?"},
+    {"domain": "bc_tenancy_cra", "label": "different", "a": "How long do I have to dispute a four-month notice to end tenancy?", "b": "How long do I have to file a bad-faith claim after my tenancy ends?"},
+
+    {"domain": "nutrition", "label": "same", "a": "@hero", "b": "@paraphrase"},
+    {"domain": "nutrition", "label": "same", "a": "Is Habanero Jack cheese dairy-free?", "b": "Does Habanero Jack cheese contain milk?"},
+    {"domain": "nutrition", "label": "same", "a": "How much sodium is in the Chipotle Southwest sauce?", "b": "What's the sodium content of Chipotle Southwest sauce?"},
+    {"domain": "nutrition", "label": "same", "a": "How many calories are in a footlong Italian (white) bread?", "b": "What's the kcal count for the footlong Italian white bread?"},
+    {"domain": "nutrition", "label": "different", "a": "@hero", "replace": ["double Habanero Jack cheese", "no cheese"]},
+    {"domain": "nutrition", "label": "different", "a": "@hero", "replace": ["Rotisserie-Style Chicken", "Turkey Breast"]},
+    {"domain": "nutrition", "label": "different", "a": "How much sodium is in the Chipotle Southwest sauce?", "b": "How much sodium is in the Nashville-Style Hot Sauce?"},
+    {"domain": "nutrition", "label": "different", "a": "Is the Nashville-Style Hot Sauce dairy-free?", "b": "Is the Chipotle Southwest sauce dairy-free?"},
+    {"domain": "nutrition", "label": "different", "a": "How many calories are in a footlong Turkey Breast portion?", "b": "How many calories are in a six-inch Turkey Breast portion?"},
+
+    {"domain": "b2b_sla", "label": "same", "a": "@hero", "b": "@paraphrase"},
+    {"domain": "b2b_sla", "label": "same", "a": "What is the on-call stipend per week?", "b": "How much are on-call engineers paid weekly as a stipend?"},
+    {"domain": "b2b_sla", "label": "same", "a": "What priority is a password reset ticket?", "b": "How should a ticket asking to reset a password be prioritised?"},
+    {"domain": "b2b_sla", "label": "same", "a": "How long are audit logs retained?", "b": "For how many years do we keep audit logs?"},
+    {"domain": "b2b_sla", "label": "different", "a": "@hero", "replace": ["99.62% monthly uptime", "99.92% monthly uptime"]},
+    {"domain": "b2b_sla", "label": "different", "a": "@hero", "replace": ["Billed $48,000 for Managed Kubernetes", "Billed $60,000 for Managed Kubernetes"]},
+    {"domain": "b2b_sla", "label": "different", "a": "What service credit applies at 99.5% uptime under the Northwind SLA?", "b": "What service credit applies at 99.5% uptime under the Helix SLA?"},
+    {"domain": "b2b_sla", "label": "different", "a": "How long are daily snapshots retained?", "b": "How long are monthly snapshots retained?"},
+    {"domain": "b2b_sla", "label": "different", "a": "What priority is a password reset ticket?", "b": "What priority is a request to resend an invoice PDF?"}
+  ]
+}

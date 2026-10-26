@@ -272,3 +272,17 @@ def test_every_engineered_preset_is_correct_in_demo(run_race, domain, kind):
     ev = run_race("engineered", p.query, p.id, domain=domain, session_id=f"all-{domain}-{kind}")
     v = by_type(ev, "verdict")[0]
     assert v["correct"] is True, (domain, kind, [r for r in v["required"] if not r["found"]], by_type(ev, "card"))
+
+
+def test_semantic_cache_does_not_reuse_an_answer_when_a_figure_changes(run_race):
+    """Editing one number keeps cosine at ~1.0 (docs/cache-threshold.md), so the figure guard must force a miss."""
+    p = PRESETS["hallucination_trap"]
+    sid = "cache-figures"
+    run_race("engineered", p.query, p.id, session_id=sid)
+    edited = p.query.replace("99.62%", "99.92%")
+    assert edited != p.query
+    second = run_race("engineered", edited, p.id, session_id=sid)
+    c2 = next(n for n in node_ends(second) if n["node"] == "cache")["data"]
+    assert c2["similarity"] >= 0.92  # the embedding alone would have served the stale answer
+    assert c2["hit"] is False and c2["rejected"] == "different figures"
+    assert done(second)["cache_hit"] is False

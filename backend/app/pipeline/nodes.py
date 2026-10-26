@@ -18,6 +18,7 @@ from app.llm.base import LLMRequest
 from app.pipeline import guardrails
 from app.pipeline.setup import RaceSetup, expected_text
 from app.pipeline.streaming import Emit, stream_tokens
+from app.rag.cache import figures_match
 from app.schemas import (
     CARD_MODELS,
     CacheLookup,
@@ -166,12 +167,15 @@ class Nodes:
         async def work():
             cache = self.ctx.cache_for(self.req.session_id, self.req.domain)
             result = await asyncio.to_thread(cache.lookup, state["query_vec"])
+            rejected = None
             if result.hit and (result.value or {}).get("card", {}).get("kind") != state["router"].card_kind:
-                result.hit = False  # same wording, different task type: not a valid reuse
+                result.hit, rejected = False, "different task type"  # same wording, different task: not a valid reuse
+            elif result.hit and not figures_match(state["sanitized"], result.matched_query or ""):
+                result.hit, rejected = False, "different figures"  # e.g. 3 passengers instead of 1
             lookup = CacheLookup(
                 hit=result.hit, similarity=None if result.similarity is None else round(result.similarity, 4),
                 threshold=self.ctx.settings.cache_threshold, backend=result.backend,  # type: ignore[arg-type]
-                matched_query=result.matched_query,
+                matched_query=result.matched_query, rejected=rejected,
             )
             update: dict[str, Any] = {"cache": lookup}
             if result.hit and result.value:

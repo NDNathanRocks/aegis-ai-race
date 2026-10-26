@@ -71,6 +71,8 @@ export const HERO_CARDS: Record<Domain, StructuredCard> = {
       { line_item: "24x7 Premium Support add-on", billed_usd: 2400, expected_usd: 0, discrepancy_usd: 2400, policy_clause: "Master SLA §5" },
     ],
     total_discrepancy_usd: 9600,
+    billed_total_usd: 45600,
+    approved_payout_usd: 36000,
     citations: [],
   },
 };

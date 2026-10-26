@@ -137,6 +137,8 @@ def _invoice_card(req: LLMRequest) -> dict:
             for a, b, c, d, e in findings
         ],
         "total_discrepancy_usd": total,
+        "billed_total_usd": 45600,
+        "approved_payout_usd": 45600 - total,
         "citations": cites,
     }
 

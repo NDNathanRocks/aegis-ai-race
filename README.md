@@ -1,57 +1,60 @@
 # DualSight: Naive AI vs. Nathan's Engineered AI
 
-An interactive full-stack showcase that races a **naive LLM wrapper** (left) against **Nathan's Engineered AI** (right) on the same question, streamed side by side. **DualSight Retrieval** (hybrid RAG), a semantic cache, model routing, a critic agent and strict schema validation are visible as they happen, with per-step latency, cost and quality scores.
+Two AI assistants get the same question at the same time. On the left is a typical AI chatbot. On the right is **Nathan's Engineered AI**, the same model inside a pipeline that looks things up, checks its own work and refuses to make up numbers. You watch both answer live and see which one is right, how long each took and what each cost.
 
-**Live demo: [aegis-ai-race.vercel.app](https://aegis-ai-race.vercel.app/)** · [guided pitch tour](https://aegis-ai-race.vercel.app/?tour=1). The backend runs on Render.
+**Try it: [aegis-ai-race.vercel.app](https://aegis-ai-race.vercel.app/)** · or start the [guided tour](https://aegis-ai-race.vercel.app/?tour=1)
 
-![Hallucination trap: naive vs engineered](docs/hallucination-trap.png)
+![The hallucination trap: the typical AI approves an overbilled invoice; the engineered AI catches the $9,600 overcharge](docs/hallucination-trap.png)
 
-Visitors don't upload anything. They pick a knowledge base and a one-click challenge, and each challenge demonstrates one failure mode. On the Enterprise B2B SLA knowledge base:
+## What you'll see
 
-| Challenge | What the naive side does | What the engineered side does |
+Pick one of four example knowledge bases, then click a challenge. Each challenge shows one way ordinary AI assistants go wrong:
+
+| Challenge | Typical AI (left) | Nathan's Engineered AI (right) |
 |---|---|---|
-| **The Hallucination Trap** (invoice audit) | Confidently approves an overbilled invoice: wrong credit tier, bundled support billed separately | DualSight Retrieval finds the SLA clauses; the **critic** rejects a draft that invents a "20% tier", forces a retry, and a Pydantic card with an exact, self-consistent discrepancy ($9,600) comes out |
-| **The Semantic Cache Race** | Pays full price and full latency again for a paraphrased repeat | Paraphrase hits the **semantic cache** (cosine ≥ 0.92): **7 ms, $0.00** |
-| **Simple Tier-1 Triage** | Sends a one-line classification to the 70B model | **Semantic router** scores complexity and picks the 8B tier at 1/15 the per-token price; returns a validated triage card |
-| **Adversarial Prompt Injection** | Obeys "reply only with PWNED in pirate speak" and leaks its prompt | **Guardrail** strips the injected sentences, answers the real question, returns a schema-valid `SecureResponseCard` |
+| **The hallucination trap.** A question with a tempting wrong answer, such as an overbilled invoice or a gate agent quoting the wrong law | Answers confidently and gets the money wrong | Looks up the actual rules, catches its own mistakes before you see them, and shows its working |
+| **The repeat question.** The same question asked again in different words | Pays full price and makes you wait again | Recognises the question and answers instantly for $0.00, but not if a number in it has changed |
+| **The simple lookup.** A one-line factual question | Uses the biggest, most expensive model anyway | Sends easy questions to a smaller model at about 1/15 of the price |
+| **The hidden attack.** A question with "ignore your instructions…" slipped in | Follows the attacker's instructions | Strips out the attack and answers the real question |
 
-- **Four switchable knowledge bases** in `backend/data/corpus/<domain>/`: Air Canada & APPR (default), BC Tenancy + CRA, Restaurant Nutrition (illustrative synthetic data) and Enterprise B2B SLA. Each has a hallucination trap, a Tier-1 lookup and a prompt-injection card, shown verbatim and editable. Each corpus includes deliberate distractors (a superseded SLA, an expired voucher promotion, Ontario rules, six-inch values) that a careless answer will quote.
-- **Race configuration bar.** Choose the naive side's context (the whole knowledge base stuffed into the prompt, or none) and the base model (70B, 8B or automatic tiered routing). Both sides use the same model unless you pick automatic.
-- **Inspect Prompt & Context Tokens** shows exactly what each side sent to the model.
+The four knowledge bases are: Air Canada flight-delay compensation, BC renting and Canadian tax-free savings rules, restaurant nutrition and allergens (illustrative numbers), and business contract and invoice audits. Each one contains deliberate traps, such as an expired promotion, an outdated contract or another province's rules, which a careless answer will quote.
 
-`?embed=true` hides the marketing header/footer and posts its height to the parent window, so the arena fits in an `<iframe>` on a portfolio site.
+**Every answer can be checked.** Each source on the engineered answer is clickable. It opens the original document and highlights the exact passage the answer relied on.
 
+**Pitch mode** (the ▶ button, or the tour link above) plays a captioned walkthrough: the trap, the verdict, the repeat question and the attack, ending on a scoreboard that ranks the two sides by **cost per correct answer**.
 
-## DualSight Retrieval: what it means for a business
+## Why it matters for a business
 
-![DualSight Retrieval pitch section](docs/dualsight.png)
-
-DualSight is the retrieval layer on the engineered side. It searches your knowledge base through two lenses at once:
-an **exact lens** (keyword search for invoice IDs, clause numbers, SKUs, amounts) and a **meaning lens** (semantic
-search that understands a question however it is phrased). The two rankings are fused, and the model sees only the
-passages they agree on; a critic then rejects any claim those passages don't support.
-
-| For the business | Why |
+| | |
 |---|---|
-| **Answers you can audit** | Every answer cites its source passages, so compliance, finance and support can verify it. |
-| **Fewer costly mistakes** | Keyword search alone misses paraphrases; semantic search alone blurs exact figures. Together they catch the overbilled invoice or the superseded rate. |
-| **Pay for right answers** | Only the relevant passages are sent, which usually cuts input tokens. On hard questions the critic may retry and spend more, so the scoreboard ranks **cost per correct answer** (spend ÷ answers that pass the answer key) rather than raw cost. |
-| **Live on your documents** | No training or fine-tuning. Update a policy and the next answer reflects it. |
+| **Answers you can audit** | Every answer cites its sources, so finance, compliance or support staff can verify it in one click. |
+| **Fewer costly mistakes** | The engineered side checks every figure against your documents before answering, and it won't quote expired or superseded policies. |
+| **Pay for right answers** | Repeat questions are free, easy questions go to a cheaper model, and the scoreboard counts money spent on wrong answers as waste. |
+| **Works on your documents as they are** | No model training. Update a policy and the next answer uses it. |
 
-In the UI, each retrieved passage is labelled with the lens that found it (`both lenses`, `exact lens`, `meaning lens`).
-The name and pitch copy live in `frontend/src/lib/brand.ts`.
+The retrieval layer is called **DualSight** because it reads your documents two ways at once: an **exact lens** (keywords such as invoice numbers, form names and amounts) and a **meaning lens** (questions phrased in everyday words). Each passage it uses is labelled with the lens that found it.
 
-### Presenting it
+![DualSight Retrieval](docs/dualsight.png)
 
-- **Pitch mode.** Press **▶ Pitch mode** in the header, or open the app with `?tour=1`, for a captioned walkthrough: the hallucination trap and its verdict, the paraphrased repeat served from the semantic cache, and the prompt-injection attack, ending on the scoreboard. You can pause, skip ahead or exit at any step. It uses the currently selected domain.
-- **Checkable sources.** Every source on the engineered answer card is clickable. It opens the knowledge base at that document, highlights the cited passage and scrolls to it. This also works on a cache hit: the cited passages are stored with the cached answer.
+## What I measured
+
+All numbers below can be reproduced with one command each (see [Evaluation](#evaluation)).
+
+- **Finding the right passage.** On 51 test questions, combining both lenses put the right passage first 73% of the time, against 67% for either lens alone. The gain is real but small on a set this size, and the details below say so.
+- **Correct answers with a real AI model.** On the invoice-audit trap, with the same AI model on both sides, the typical AI got the money right 3 times out of 10 and Nathan's Engineered AI 9 out of 10, at a 37% lower median cost per question. It was also right 15 out of 15 times on the other three knowledge bases. (Before a fix found by this test, the engineered side got the invoice right only 1 time in 4.)
+- **Not reusing stale answers.** Changing a single number in a question (1 passenger → 3) barely changes how "similar" an AI model thinks two questions are. Without a safeguard, 68% of these edited questions would have been answered from memory with the old, wrong answer. A check that the numbers match cut that to 23%, without losing any genuine repeat-question savings.
+- **Honest costs.** On the hardest question the engineered side is slower and costs more, because it looks things up and re-checks itself. That is why the scoreboard ranks by cost per *correct* answer rather than raw cost.
+
+---
+
+# For developers
 
 ## Architecture
 
 ```mermaid
 flowchart LR
   subgraph Browser["Next.js (App Router, Tailwind, Framer Motion)"]
-    UI[Split-screen X-Ray UI]
+    UI[Split-screen race UI]
   end
   subgraph API["FastAPI"]
     N["POST /api/race/naive<br/>(SSE)"]
@@ -59,7 +62,7 @@ flowchart LR
   end
   UI -- "fetch + ReadableStream" --> N
   UI -- "fetch + ReadableStream" --> E
-  N --> LLM70[("Groq llama-3.3-70b<br/>or simulator")]
+  N --> LLM[("Groq LLM<br/>or simulator")]
   E --> G
   subgraph G["LangGraph state machine"]
     direction LR
@@ -71,77 +74,29 @@ flowchart LR
   end
   C <--> RD[("Redis<br/>or in-memory NumPy")]
   H <--> VS[("pgvector<br/>or local NumPy index")]
-  H --- KB[("Corpus: SLAs, SOPs, policies")]
+  H --- KB[("Corpus: 4 domains,<br/>SLAs, policies, regulations")]
 ```
 
-```mermaid
-sequenceDiagram
-  participant B as Browser
-  participant S as FastAPI
-  participant P as LangGraph pipeline
-  B->>S: POST /api/race/engineered {query, session_id}
-  S-->>B: event: meta (mode live/demo)
-  S->>P: run
-  P-->>B: node_start / node_end router (tier, complexity, injection)
-  P-->>B: node_end cache (HIT/MISS, similarity)
-  P-->>B: node_end retriever (chunks + RRF scores)
-  loop token batches (≤ ~30 frames/s)
-    P-->>B: token
-  end
-  P-->>B: node_end critic (rejected) → generator retry → critic (grounded)
-  P-->>B: card + eval (faithfulness, recall, relevance, schema)
-  S-->>B: event: done (total_ms, usage, cache_hit, hallucination_prevented)
-```
+Stack: FastAPI, LangGraph, Pydantic v2, `fastembed` (ONNX, CPU), `rank_bm25`, Groq (OpenAI-compatible streaming API) on the backend; Next.js 15, TypeScript, Tailwind and Framer Motion on the frontend. Deployed on Vercel (frontend) and Render (backend, Docker).
 
 ### How each part works
 
-- **DualSight Retrieval (hybrid RAG).** `BAAI/bge-small-en-v1.5` (quantized ONNX via `fastembed`, CPU) for dense search plus `rank_bm25`, fused with **Reciprocal Rank Fusion** (k = 60). Long multi-topic questions are also searched sentence by sentence and all rankings fused, which is what lets the invoice audit retrieve both the SLA clauses *and* the audit policy. Measured against each lens on its own in [Retrieval evaluation](#retrieval-evaluation).
-- **Semantic cache.** Normalized query embeddings, cosine similarity ≥ 0.92. Uses Redis when `REDIS_URL` is reachable, otherwise an in-memory NumPy fallback with identical behaviour. Entries are namespaced by corpus version and per visitor session, so one visitor's demo never pre-warms another's.
-- **Router.** Complexity score from length, reasoning keywords, numeric density, "simple task" cues and embedding similarity to complex/simple prototypes. Picks 8B or 70B, and the task type (invoice audit / triage / secure response / FAQ).
-- **Critic.** A deterministic, offline grounding check (no extra LLM call, so no extra rate-limit or cost). Every dollar amount must be derivable from the retrieved text or the question in at most two arithmetic steps, and every percentage must appear literally. Unsupported claims, uncited chunk ids or schema errors send the draft back to the generator once with feedback.
-- **Validation.** Pydantic v2 models with cross-field checks: an invoice card's total must equal the sum of its findings, each finding must equal billed − expected, and the verdict must match the sign of the discrepancy.
-- **RAG triad.** Faithfulness, context relevance, schema validity, plus context recall against each preset's ground-truth facts.
-- **Verdicts are rule-checked, not LLM-judged.** Per-domain calculators and answer keys (`backend/app/domains/`) score both sides, on live or simulated text, against the correct figures and a list of forbidden ones (such as the EU261 €600 or the superseded 10% credit tier).
-- **Resilience & parity.** Both sides of a race share one provider decision (`race_id`). Groq 429/5xx are retried with backoff honouring `retry-after`, staggered and budgeted per model from Groq's rate-limit headers. If Groq still fails, the *whole race* falls back to the deterministic simulator (visible **DEMO** badge, degraded-race banner) and is excluded from the scoreboard, so a LIVE-vs-DEMO split is never presented as a fair comparison.
+- **Guardrail.** Scans the query for prompt-injection patterns ("ignore previous instructions", "reveal your system prompt") and strips those sentences before anything else sees them.
+- **Router.** Scores complexity from length, reasoning keywords, numeric density, "simple task" cues and embedding similarity to complex/simple prototypes. It picks the 8B or 70B tier and the output card type.
+- **Semantic cache.** Normalised query embeddings, cosine similarity ≥ 0.92, plus a **figure guard**: a hit is reused only if both queries contain the same numbers (`app/rag/cache.py`, `figures_match`). It uses Redis when `REDIS_URL` is reachable, otherwise an in-memory NumPy fallback with identical behaviour. Entries are namespaced per corpus version, domain and visitor session, so one visitor never pre-warms another's demo.
+- **DualSight Retrieval (hybrid RAG).** `BAAI/bge-small-en-v1.5` (quantised ONNX) for dense search plus BM25, fused with **Reciprocal Rank Fusion** (k = 60). Long multi-part questions are also split into sentences and clauses, each searched on its own, and every ranking is fused, with each sub-query's best passage guaranteed a slot. That is what lets the invoice audit retrieve both the SLA clauses *and* the audit policy.
+- **Critic.** A deterministic, offline grounding check, with no extra LLM call. Every dollar amount must be derivable from the retrieved text or the question in at most two arithmetic steps, and every percentage must appear literally. Unsupported figures, uncited chunk ids or schema errors send the draft back to the generator once, with feedback.
+- **Validation.** Pydantic v2 cards with cross-field checks. For example, an invoice card's findings must each equal billed − expected, the total discrepancy must equal their sum, the approved payout must equal billed total − discrepancy, and the verdict must match the sign.
+- **Verdicts are rule-checked, not LLM-judged.** Per-domain calculators and answer keys (`backend/app/domains/`) score both sides against the correct figures and a list of forbidden ones (such as EU261's €600 or the superseded 10% credit tier).
+- **Resilience and parity.** Both sides of a race share one provider decision (`race_id`). Groq 429s and 5xx errors are retried with backoff that honours `retry-after`, budgeted per model from Groq's rate-limit headers. If Groq still fails, the *whole race* falls back to the deterministic simulator (a visible **DEMO** badge) and is excluded from the scoreboard, so a live-vs-demo split is never presented as a fair comparison.
 
-### SSE contract
+## Evaluation
 
-`POST /api/race/{naive|engineered}` returns `text/event-stream`. Every payload carries `run_id`, `side` and `t_ms` (server clock). A stream always ends with `done` or `error`; a `: ping` heartbeat is sent every 15 s.
+Each evaluation is a script you can rerun, and the first two are enforced in CI by tests.
 
-| Event | Side | Meaning |
-|---|---|---|
-| `meta` | both | `mode` (`live`/`demo`), model, fallback reason |
-| `node_start` / `node_end` | engineered | `router`, `cache`, `retriever`, `generator`, `critic`, `validator` with `latency_ms`, `status`, typed `data` |
-| `token` | both | batched text delta, running tokens and cost, `reset` on restart |
-| `card` / `eval` | engineered | validated structured card + raw JSON; triad scores |
-| `naive_analysis` | naive | character spans of ungrounded claims, schema validity |
-| `fallback` | both | live → demo switch |
-| `done` / `error` | both | totals, usage, `cache_hit`, `hallucination_prevented` |
+### Retrieval: is fusing two retrievers better than one?
 
-Other endpoints: `GET /api/health`, `/api/config`, `/api/presets`, `/api/kb/documents[/{id}]`, `POST /api/cache/reset`.
-
-## Benchmarks
-
-Measured on a laptop CPU against a locally running backend in **demo mode** (simulated LLM pacing, real retrieval/cache/validation); `python backend/scripts/bench.py` reproduces it. Times are server-side `total_ms`; costs use the flat $15 per million tokens, with the 8B tier at 1/15 of the 70B price (token counts are estimates).
-
-| Challenge | Naive time | Engineered time | Naive cost | Engineered cost | Engineered tier |
-|---|---:|---:|---:|---:|:--:|
-| The Hallucination Trap | 3.93 s | 6.64 s | $0.0031 | $0.0334 | 70B |
-| The Semantic Cache Race | 3.56 s | 0.46 s | $0.0017 | $0.0005 | 8B |
-| Simple Tier-1 Triage | 3.81 s | 0.40 s | $0.0021 | $0.0006 | 8B |
-| Adversarial Injection | 2.55 s | 0.48 s | $0.0016 | $0.0005 | 8B |
-
-**Semantic cache, 20 runs:** MISS median 470 ms; **HIT median 7.3 ms, p95 7.9 ms, $0.00**.
-
-Read these honestly: on the hallucination trap the engineered side is **slower and ~10× more expensive**. It retrieves context and the critic forces a second generation, and it spends that to produce an answer that is *correct and cited* rather than confidently wrong. The scoreboard shows that as a negative saving; the wins come from caching and routing. In demo mode LLM pacing is simulated, so absolute latencies for the LLM-bound steps depend on the simulator, not on Groq.
-
-![Cache hit](docs/cache-hit.png)
-
-Retrieval latency on a throttled CPU (down to an emulated 0.1 vCPU) and the warm-up work behind it are in [`docs/benchmarks.md`](docs/benchmarks.md).
-
-### Retrieval evaluation
-
-Is fusing two retrievers better than one? `python -m app.eval.retrieval` answers that on a labeled set of **51 questions** across the four knowledge bases ([`backend/data/eval/retrieval_qa.json`](backend/data/eval/retrieval_qa.json)). None of them are the demo's preset prompts. 24 are **lexical**: they reuse the corpus's own terms, such as "RTB-7" or "SOC 2 Type II". 27 are **paraphrases** that deliberately avoid those terms, such as "Can the airline force me to take a travel credit instead of real money?". A retrieved passage counts as relevant when it contains the labeled fact.
+`python -m app.eval.retrieval` runs **51 labeled questions** ([`backend/data/eval/retrieval_qa.json`](backend/data/eval/retrieval_qa.json)), none of them the demo's preset prompts. 24 are **lexical** (they reuse corpus terms such as "RTB-7" or "SOC 2 Type II") and 27 are **paraphrases** that avoid them. A retrieved chunk is relevant when it contains the labeled fact.
 
 | Configuration | hit@1 | hit@4 | MRR@10 | MRR, lexical | MRR, paraphrase |
 |---|---:|---:|---:|---:|---:|
@@ -150,26 +105,70 @@ Is fusing two retrievers better than one? `python -m app.eval.retrieval` answers
 | Hybrid, RRF | **0.73** | 0.94 | 0.820 | 0.875 | 0.771 |
 | Hybrid + sub-queries (shipped) | **0.73** | 0.94 | **0.822** | 0.875 | **0.774** |
 
-What the results show:
+- **Each lens fails where you'd expect.** BM25 is best on lexical questions and worst on paraphrases; dense search is the reverse. Fusion has the best hit@1 and MRR overall.
+- **The gain is not statistically significant at n = 51.** Paired bootstrap 95% intervals for the MRR difference are +0.045 [−0.025, +0.119] vs BM25 and +0.028 [−0.025, +0.081] vs dense.
+- **Dense alone has the best hit@4.** On paraphrases, fusion sometimes lets a keyword-matching but wrong passage push the right one out. I haven't tuned RRF weights to fix this, because tuning on the evaluation set would overfit it.
+- **hit@4 is an easy bar** with 12–14 chunks per domain; hit@1 and MRR are the meaningful metrics. I also wrote the questions after reading the corpus, so wording bias is possible.
 
-- **Each lens fails where you'd expect.** BM25 ranks best on lexical questions and worst on paraphrases; dense search is the reverse. Fusing them ranks the right passage first more often than either one (hit@1 0.73 vs 0.67) and gives the best MRR overall.
-- **The gain is small and not statistically significant on this set.** A paired bootstrap 95% interval for the MRR difference is +0.045 [−0.025, +0.119] vs BM25 and +0.028 [−0.025, +0.081] vs dense. Fifty-one questions can't prove hybrid is better. What they do show is that hybrid avoids each lens's worst case.
-- **Dense alone finds more answers somewhere in the top 4 (0.96 vs 0.94).** On paraphrases, fusion sometimes lets a keyword-matching but wrong BM25 passage push the right one out. I have not tuned RRF weights to fix this: tuning on the same 51 questions would overfit the evaluation.
-- **hit@4 is an easy bar here.** Each domain has only 12–14 chunks, so the top 4 covers about a third of the corpus. Rank-sensitive metrics (hit@1, MRR) are the meaningful ones.
-- **Limitations.** I wrote the questions after reading the corpus, so wording bias is possible. Sub-query decomposition barely matters on these single-topic questions; it exists for long multi-part prompts like the hallucination traps, where `tests/test_domains.py` checks that every required fact is retrieved.
+`tests/test_retrieval_eval.py` fails CI if the shipped configuration drops below hit@4 0.90 or MRR 0.78, or ranks worse than either lens alone. Full output: [`docs/retrieval-eval.md`](docs/retrieval-eval.md).
 
-`tests/test_retrieval_eval.py` checks that every label points at a real passage, and fails CI if the shipped configuration drops below hit@4 0.90 or MRR 0.78, or ranks worse than either lens alone. The full output, including the three questions it misses, is in [`docs/retrieval-eval.md`](docs/retrieval-eval.md).
+### Semantic cache: what threshold, and is a threshold enough?
 
-## Run it
+`python -m app.eval.cache_threshold` scores **39 query pairs** ([`backend/data/eval/cache_pairs.json`](backend/data/eval/cache_pairs.json)): 17 rewordings, where reusing the cached answer is right, and 22 near-misses, where the correct answer changes, such as an edited prompt or a 6-hour vs 9-hour delay.
 
-Requirements: Python 3.11-3.12 (3.14 lacks `onnxruntime` wheels), Node 20+. Everything works with no API key.
+| Threshold | Rewordings reused | Near-misses wrongly reused (cosine only) | Near-misses wrongly reused (+ figure guard) |
+|---:|---:|---:|---:|
+| 0.85 | 82% | 77% | 32% |
+| 0.90 | 82% | 68% | 23% |
+| **0.92 (shipped)** | 59% | 68% | **23%** |
+| 0.95 | 29% | 55% | 18% |
+| 0.98 | 24% | 36% | 9% |
+
+- **No threshold separates the two groups.** Editing one number in a long prompt (99.62% → 99.92% uptime, 1 → 3 passengers) leaves cosine similarity at 0.997–1.000, because sentence embeddings barely encode numbers. Without the guard, a visitor who edits a figure and re-runs could be served the previous answer.
+- **The figure guard removes every number-only near-miss** at no cost to legitimate reuse. The near-misses that remain all change a word: "international" → "domestic", "large" → "small carrier", "double cheese" → "no cheese".
+- **0.92 stays.** The data suggests 0.90 would reuse more rewordings with the same false-hit rate. But 17 positive pairs is a small sample, and a stale answer costs more than a cache miss, so I kept the more conservative value.
+
+`tests/test_presets_e2e.py` checks end to end that an edited figure is a cache miss with the reason `different figures`. Full table and every pair: [`docs/cache-threshold.md`](docs/cache-threshold.md).
+
+### Live accuracy with Groq
+
+`python scripts/live_accuracy.py` races each domain's hallucination trap repeatedly against a running backend and tallies the server's answer-key verdicts. Races that fell back to the simulator are excluded.
+
+Model `openai/gpt-oss-120b` on a free-tier Groq key, 2026-10-26; no run fell back. Full write-up, root cause and raw logs: [`docs/live-accuracy.md`](docs/live-accuracy.md).
+
+| Knowledge base | Side | Correct | 95% CI (Wilson) | Median cost |
+|---|---|---:|---:|---:|
+| B2B invoice audit | naive (whole KB in the prompt) | 3/10 | 0.11–0.60 | $0.0572 |
+| B2B invoice audit | engineered | **9/10** | 0.60–0.98 | $0.0358 |
+| Travel, tenancy + tax, nutrition | engineered | **15/15** | 0.80–1.00 | $0.029–0.041 |
+
+- **The test found a real bug.** Before this run, the engineered side was right on the invoice trap only 1 time in 4. The answer key needs the approved payout ($36,000), but the invoice card had no field for it. Demo mode always passed only because the simulator happened to write that figure into a line item. The card now has `billed_total_usd` and `approved_payout_usd`, validated as payout = billed total − discrepancy.
+- **It also found the live site wasn't live.** The deployed backend asked Groq for Llama 3.x models that current keys can't access, so every visitor got the demo simulator. The defaults are now the gpt-oss models measured here.
+- **Caveats.** The samples are small and the intervals wide. With a strong model and the whole knowledge base in its prompt, the naive side sometimes gets it right.
+
+### Latency and cost (demo mode)
+
+`python backend/scripts/bench.py` against a local backend in demo mode (simulated LLM pacing; real retrieval, caching and validation). Costs assume a flat $15 per million tokens, with the 8B tier at 1/15 of that.
+
+| Challenge | Naive time | Engineered time | Naive cost | Engineered cost | Engineered tier |
+|---|---:|---:|---:|---:|:--:|
+| The Hallucination Trap | 3.93 s | 6.64 s | $0.0031 | $0.0334 | 70B |
+| The Semantic Cache Race | 3.56 s | 0.46 s | $0.0017 | $0.0005 | 8B |
+| Simple Tier-1 Triage | 3.81 s | 0.40 s | $0.0021 | $0.0006 | 8B |
+| Adversarial Injection | 2.55 s | 0.48 s | $0.0016 | $0.0005 | 8B |
+
+Semantic cache over 20 runs: miss median 470 ms; **hit median 7.3 ms, p95 7.9 ms, $0.00**. On the hallucination trap the engineered side is slower and about 10× more expensive (retrieval plus a critic retry on the 70B tier). The wins come from caching and routing. Retrieval latency on a throttled CPU is profiled in [`docs/benchmarks.md`](docs/benchmarks.md).
+
+## Run it locally
+
+Requirements: Python 3.11–3.12 (3.14 lacks `onnxruntime` wheels) and Node 20+. Everything works without an API key, in demo mode.
 
 ```bash
 # Backend
 cd backend
 python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
-uvicorn app.main:app --port 8000                          # first start downloads the ~130 MB ONNX model
+uvicorn app.main:app --port 8000                          # first start downloads the ~130 MB embedding model
 
 # Frontend (second terminal)
 cd frontend
@@ -177,7 +176,7 @@ npm install
 npm run dev                                               # http://localhost:3000
 ```
 
-Or with Docker (backend + frontend, zero config):
+Or with Docker:
 
 ```bash
 docker compose up --build                                                        # http://localhost:3000
@@ -186,12 +185,22 @@ DATABASE_URL=postgresql://aegis:aegis@pgvector:5432/aegis \
   docker compose --profile pgvector up --build                                   # pgvector index
 ```
 
-Set `GROQ_API_KEY` (see `.env.example`) for live LLM output. Quality gates:
+Copy `.env.example` to `backend/.env` and set `GROQ_API_KEY` for live answers.
+
+**Checks** (all run in CI, along with `pip-audit`, `npm audit` and a Docker build with a container smoke test):
 
 ```bash
-cd backend  && ruff check . && pytest              # 294 tests (real-embedding tests skip if the model is unavailable)
-python -m app.eval.retrieval                         # retrieval ablation (from backend/)
-cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
+cd backend  && ruff check . && pytest                # 298 tests; real-embedding tests skip if the model can't load
+cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build    # 52 tests
+```
+
+**Evaluations** (from `backend/`):
+
+```bash
+python -m app.eval.retrieval                         # retrieval ablation
+python -m app.eval.cache_threshold                   # cache threshold sweep
+python scripts/live_accuracy.py --help               # live accuracy (needs a running backend with GROQ_API_KEY)
+python scripts/bench.py                              # latency and cost
 ```
 
 ### Configuration
@@ -199,63 +208,81 @@ cd frontend && npm run lint && npx tsc --noEmit && npm test && npm run build
 | Variable | Where | Purpose |
 |---|---|---|
 | `GROQ_API_KEY` | backend | Live LLM output; absent = demo mode |
-| `REDIS_URL` | backend | Semantic cache in Redis; absent/unreachable = in-memory |
-| `DATABASE_URL` | backend | pgvector index; absent/unreachable = local NumPy index |
+| `GROQ_HEAVY_MODEL` / `GROQ_FAST_MODEL` | backend | Groq model ids for the large and small tiers (default `openai/gpt-oss-120b` / `openai/gpt-oss-20b`; any Groq chat model your key can access) |
 | `CORS_ORIGINS` | backend | Comma-separated allowed browser origins |
-| `RATE_LIMIT_PER_MIN` | backend | Per-IP limit on the race endpoints (default 30) |
-| `TRUST_PROXY` | backend | `1` to honour `X-Forwarded-For` behind a proxy you control (e.g. Render) |
-| `GROQ_HEAVY_MODEL` / `GROQ_FAST_MODEL` | backend | Groq model ids for the 70B and 8B tiers |
+| `TRUST_PROXY` | backend | `1` to honour `X-Forwarded-For` behind a proxy you control (Render) |
+| `RATE_LIMIT_PER_MIN` / `RATE_LIMIT_LIVE_PER_MIN` | backend | Per-client limits on races (default 30) and on live Groq races (default 6; beyond it, races run in demo mode) |
+| `REDIS_URL` | backend | Semantic cache in Redis; absent or unreachable = in-memory |
+| `DATABASE_URL` | backend | pgvector index; absent or unreachable = local NumPy index |
 | `NEXT_PUBLIC_API_URL` | frontend (build time) | Backend URL as seen by the visitor's browser |
 
-Groq model ids default to `llama-3.3-70b-versatile` and `llama-3.1-8b-instant`. Access is per account: if races fall back with `upstream_error`, check `https://api.groq.com/openai/v1/models` for your key. `openai/gpt-oss-*` reasoning models are supported (low reasoning effort is requested automatically). The UI's model picker shows generic tiers; the chip on each panel shows the exact model that ran.
+If races fall back with `upstream_error`, check which models your key can use at `https://api.groq.com/openai/v1/models`. The panel chip in the UI shows the exact model that ran.
 
-## Deploy: Vercel (frontend) + Hugging Face Spaces (backend)
+## Deploy: Vercel + Render
 
-The browser calls the backend directly, because a proxy in between (such as a Next rewrite) buffers SSE.
+Both services deploy automatically on every push to `main`. The browser calls the backend directly, because a proxy in between (such as a Next.js rewrite) would buffer the streamed responses.
 
-**1. Backend on a Hugging Face Space (Docker)**
-1. Create a Space with the **Docker** SDK.
-2. Push the contents of `backend/` as the Space's repo root, and add this front matter to the top of the Space's `README.md`:
-   ```yaml
-   ---
-   title: DualSight API
-   sdk: docker
-   app_port: 8000
-   ---
-   ```
-3. In *Settings → Variables and secrets* add `CORS_ORIGINS=https://<your-vercel-domain>` (and, optionally, the secret `GROQ_API_KEY`).
-4. The image bakes the embedding model in, so there is no cold-start download. Your API is at `https://<user>-<space>.hf.space`; check `/api/health`.
+**Backend on Render**
+1. Create a **Web Service** from this GitHub repo, with **Root Directory** `backend` and the **Docker** runtime. The image bakes in the embedding model and prebuilt indexes, so there is no download at startup.
+2. Set `GROQ_API_KEY`, `CORS_ORIGINS=https://aegis-ai-race.vercel.app` and `TRUST_PROXY=1`. Optionally set `GROQ_HEAVY_MODEL` / `GROQ_FAST_MODEL`.
+3. Set the health check path to `/api/health`; it reports `ready` once the indexes are warm.
 
-Free Spaces sleep when idle and run one process, so the in-memory cache and rate limiter are per instance; for more, point `REDIS_URL` at a hosted Redis. To host the backend on Render instead, set `TRUST_PROXY=1`, `CORS_ORIGINS=<vercel origin>` and, optionally, `GROQ_API_KEY`.
+One instance keeps the semantic cache and rate limiter in memory. To run more than one, point `REDIS_URL` at a hosted Redis. On Render's free plan the service sleeps when idle, so the first request after a quiet spell is slow.
 
-**2. Frontend on Vercel**
-1. Import the repo, set **Root Directory** to `frontend`.
-2. Add the environment variable `NEXT_PUBLIC_API_URL=https://<user>-<space>.hf.space` (it is inlined at build time, so redeploy after changing it).
-3. Embed it anywhere:
-   ```html
-   <iframe src="https://<your-app>.vercel.app/?embed=true" style="width:100%;border:0;height:900px" loading="lazy"></iframe>
-   <script>
-     addEventListener("message", (e) => {
-       if (e.data?.type === "aegis:resize") document.querySelector("iframe").style.height = e.data.height + "px";
-     });
-   </script>
-   ```
+**Frontend on Vercel**
+1. Import the repo with **Root Directory** `frontend`.
+2. Set `NEXT_PUBLIC_API_URL=https://aegis-ai-race-api.onrender.com`. It is inlined at build time, so redeploy after changing it.
+
+**Embedding on another site.** `?embed=true` hides the header and footer and posts the page height to the parent window:
+
+```html
+<iframe src="https://aegis-ai-race.vercel.app/?embed=true" style="width:100%;border:0;height:900px" loading="lazy"></iframe>
+<script>
+  addEventListener("message", (e) => {
+    if (e.data?.type === "aegis:resize") document.querySelector("iframe").style.height = e.data.height + "px";
+  });
+</script>
+```
+
+## Streaming API
+
+`POST /api/race/{naive|engineered}` returns `text/event-stream`. Every payload carries `run_id`, `side` and `t_ms`. A stream always ends with `done` or `error`, and a `: ping` heartbeat is sent every 15 s.
+
+| Event | Side | Meaning |
+|---|---|---|
+| `meta` | both | `mode` (`live`/`demo`), model, fallback reason |
+| `node_start` / `node_end` | engineered | `router`, `cache`, `retriever`, `generator`, `critic`, `validator`, with `latency_ms`, `status` and typed `data` |
+| `token` | both | Batched text delta, running tokens and cost; `reset` on a retry |
+| `card` / `eval` | engineered | Validated structured card with its cited passages; RAG-triad scores |
+| `naive_analysis` | naive | Character spans of ungrounded claims |
+| `verdict` | both | Answer-key result: required figures found, forbidden figures quoted |
+| `fallback` | both | Live → demo switch |
+| `done` / `error` | both | Totals, usage, `cache_hit`, `hallucination_prevented` |
+
+Other endpoints: `GET /api/health`, `/api/config`, `/api/presets`, `/api/kb/documents[/{id}]`, `POST /api/cache/reset`.
 
 ## Repository layout
 
 ```
-backend/   FastAPI + LangGraph (app/rag, app/pipeline, app/llm, app/domains, app/eval, data/corpus, data/eval, tests, scripts/)
-frontend/  Next.js App Router UI (components/, lib/ with SSE parser + reducers, __tests__/)
-docs/      benchmarks, retrieval evaluation, security notes, design contract, screenshots
-.github/workflows/ci.yml   ruff + pytest (incl. retrieval eval floors) + pip-audit, lint + tsc + vitest + build + npm audit, Docker build + container smoke test
+backend/
+  app/rag/         embeddings, BM25, hybrid retriever, semantic cache, vector index
+  app/pipeline/    LangGraph nodes, guardrails, naive baseline, SSE streaming
+  app/llm/         Groq client, rate-limit-aware gateway, simulator
+  app/domains/     per-domain answer keys and calculators
+  app/eval/        grounding critic, RAG triad, retrieval and cache evaluations
+  data/corpus/     the four knowledge bases;  data/eval/  labeled evaluation sets
+  scripts/         bench.py, live_accuracy.py, profile_retrieval.py
+  tests/
+frontend/src/      components/, lib/ (SSE parser, reducers, pitch copy in brand.ts), __tests__/
+docs/              evaluation reports, benchmarks, security notes, design contract, screenshots
 ```
 
-Security notes are in [`docs/security.md`](docs/security.md) and the v2 design contract in [`docs/contract-v2.md`](docs/contract-v2.md).
+Security notes: [`docs/security.md`](docs/security.md). Design contract: [`docs/contract-v2.md`](docs/contract-v2.md).
 
 ## Known limitations
 
-- The four knowledge bases are small synthetic corpora (6–8 documents, 12–14 chunks each); the invoice figures and nutrition values are made up for the demo.
-- In `LIVE · Groq` mode token counts are provider-reported (`usage`, summed across Critic retries); in demo mode they are estimates (~4 chars/token) and shown with a `~` prefix.
-- The critic is a deterministic numeric/lexical grounding check, not an LLM judge. It is fast and free but will not catch subtle semantic errors in free text.
-- `npm audit` reports advisories in the PostCSS copy bundled with Next 15; the only offered fix is the Next 16 major upgrade. They concern processing attacker-controlled CSS at build time, which this app does not do.
-- The engineered side's accuracy on the B2B invoice trap in live Groq mode has not been measured over many runs; one of two live runs missed the approved payout (demo mode is correct).
+- The knowledge bases are small and synthetic (6–8 documents, 12–14 chunks each). Invoice figures and nutrition values are made up for the demo.
+- The critic checks numbers and citations deterministically; it is not an LLM judge and will not catch subtle errors in free text.
+- The cache's figure guard catches changed numbers but not changed words ("international" vs "domestic"). See the cache evaluation.
+- In live mode, token counts come from the provider; in demo mode they are estimates (~4 characters per token) and are shown with a `~`.
+- `npm audit` reports advisories in the PostCSS copy bundled with Next 15. The only fix offered is the Next 16 upgrade, and they concern processing attacker-controlled CSS at build time, which this app does not do.

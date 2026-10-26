@@ -74,6 +74,7 @@ export interface CacheLookup {
   threshold: number;
   backend: "redis" | "memory";
   matched_query: string | null;
+  rejected?: string | null;
 }
 
 export interface CriticVerdict {
@@ -109,6 +110,8 @@ export type StructuredCard =
       verdict: "compliant" | "overbilled" | "underbilled" | "needs_review";
       findings: InvoiceLineFinding[];
       total_discrepancy_usd: number;
+      billed_total_usd: number;
+      approved_payout_usd: number;
       citations: string[];
     }
   | {

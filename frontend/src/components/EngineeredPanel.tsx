@@ -106,6 +106,11 @@ function CacheBody({ run }: { run: EngineeredRun }) {
           and critic skipped; $0.00 spent.
         </p>
       )}
+      {!c.hit && c.rejected && (
+        <p className="text-[11px] text-mute">
+          Similar to an earlier query, but not reused: <span className="text-ink">{c.rejected}</span>. Answering fresh.
+        </p>
+      )}
     </div>
   );
 }

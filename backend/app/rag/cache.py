@@ -1,14 +1,29 @@
 """Semantic cache: Redis-backed with automatic in-memory NumPy fallback."""
 import json
 import logging
+import re
 import threading
 import time
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, Protocol
 
 import numpy as np
 
 log = logging.getLogger("aegis.cache")
+
+_FIGURE = re.compile(r"(\d[\d,]*(?:\.\d+)?)(\s?(?:%|percent\b|per cent\b))?", re.I)
+
+
+def query_figures(text: str) -> list[str]:
+    """Every number in a query, normalised (1,000 == 1000.0, 99.7 percent == 99.7%) and sorted."""
+    return sorted(f"{Decimal(m[1].replace(',', '')).normalize():f}{'%' if m[2] else ''}" for m in _FIGURE.finditer(text))
+
+
+def figures_match(a: str, b: str) -> bool:
+    """Embeddings barely register numbers: changing 99.62% to 99.92% in a long prompt keeps cosine at ~1.0
+    (docs/cache-threshold.md). A cached answer is reused only when both queries contain the same figures."""
+    return query_figures(a) == query_figures(b)
 
 
 @dataclass

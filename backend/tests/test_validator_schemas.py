@@ -17,7 +17,8 @@ def _finding(billed=43200, expected=36000, disc=7200):
 def _card(**over):
     base = {
         "vendor": "Northwind", "invoice_id": "INV-2291", "verdict": "overbilled",
-        "findings": [_finding(), _finding(2400, 0, 2400)], "total_discrepancy_usd": 9600, "citations": ["a#1"],
+        "findings": [_finding(), _finding(2400, 0, 2400)], "total_discrepancy_usd": 9600,
+        "billed_total_usd": 45600, "approved_payout_usd": 36000, "citations": ["a#1"],
     }
     return {**base, **over}
 
@@ -32,6 +33,22 @@ def test_valid_invoice_card_and_json_money_is_a_number():
 def test_total_must_equal_sum_of_findings():
     with pytest.raises(ValidationError, match="sum of findings"):
         InvoiceAuditCard.model_validate(_card(total_discrepancy_usd=7200))
+
+
+def test_approved_payout_must_equal_billed_total_minus_discrepancy():
+    with pytest.raises(ValidationError, match="approved_payout_usd"):
+        InvoiceAuditCard.model_validate(_card(approved_payout_usd=38400))
+
+
+def test_credit_as_its_own_line_still_states_the_payout():
+    """Live models often record the credit line as -4,800 billed vs -12,000 expected, so 36,000 appears in no
+    line item. The card's approved_payout_usd field is where the answer key finds it (live run, 2026-10-26)."""
+    from app.domains import check_answer, expected_answer
+    from tests.heroes import B2B_HERO
+
+    card = InvoiceAuditCard.model_validate(_card(findings=[_finding(-4800, -12000, 7200), _finding(2400, 0, 2400)]))
+    v = check_answer(card, expected_answer("b2b_sla", "hallucination_trap", B2B_HERO))
+    assert v.correct, v.required
 
 
 def test_line_discrepancy_must_equal_billed_minus_expected():

@@ -129,3 +129,15 @@ def test_redis_errors_after_connect_degrade_to_miss(caplog):
         assert c.lookup(_unit(1, 0)).hit is False
         c.store("q2", _unit(0, 1), {})  # must not raise
     assert "treating as a cache miss" in caplog.text and "entry not cached" in caplog.text
+
+
+def test_figures_match_normalises_formatting_but_not_values():
+    from app.rag.cache import figures_match, query_figures
+
+    assert query_figures("Billed $48,000 at 99.62% uptime") == ["48000", "99.62%"]
+    assert figures_match("uptime drops to 99.7%?", "uptime came in at 99.7 percent")
+    assert figures_match("$1,000.00 owed", "1000 owed")
+    assert not figures_match("delayed 6.5 hours", "delayed 9.5 hours")
+    assert not figures_match("a 6% increase", "a 6 month increase")
+    assert not figures_match("1 passenger", "3 passengers")
+    assert figures_match("no numbers here", "none here either")

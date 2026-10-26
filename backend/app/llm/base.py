@@ -89,7 +89,11 @@ NAIVE_SYSTEM = "You are a helpful assistant."
 NAIVE_KB_PREFIX = "Use the knowledge base below to answer the user's question.\n\nKNOWLEDGE BASE:\n"
 
 CARD_HINTS: dict[str, str] = {
-    "invoice_audit": "For every finding, discrepancy_usd = billed_usd - expected_usd, and total_discrepancy_usd is their sum.",
+    "invoice_audit": (
+        "For every finding, discrepancy_usd = billed_usd - expected_usd, and total_discrepancy_usd is their sum. "
+        "billed_total_usd is the invoice total as billed, and approved_payout_usd = billed_total_usd - "
+        "total_discrepancy_usd is the amount that should actually be paid."
+    ),
     "appr_claim": (
         "Money fields are plain numbers in CAD. Look the delay tier up in the context, pay it per passenger, and "
         "total_cad = delay_compensation_cad + baggage_refund_cad. Put claims that do not apply (foreign regimes, "

@@ -10,8 +10,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     groq_api_key: str | None = None
-    groq_heavy_model: str = "llama-3.3-70b-versatile"
-    groq_fast_model: str = "llama-3.1-8b-instant"
+    groq_heavy_model: str = "openai/gpt-oss-120b"  # the Llama 3.x ids return 404 model_not_found on current keys
+    groq_fast_model: str = "openai/gpt-oss-20b"
     redis_url: str | None = None
     database_url: str | None = None  # enables pgvector
     cors_origins: str = "http://localhost:3000"

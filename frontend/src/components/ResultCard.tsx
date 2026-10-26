@@ -103,6 +103,20 @@ export function ResultCard({ card, chunks, onCite }: { card: StructuredCard; chu
                     {money(card.total_discrepancy_usd)}
                   </td>
                 </tr>
+                <tr>
+                  <td colSpan={3} className="pt-1 text-right text-[11px] text-mute">
+                    Billed total
+                  </td>
+                  <td className="pt-1 text-right font-mono tabular-nums">{money(card.billed_total_usd)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={3} className="pt-1 text-right text-[11px] text-mute">
+                    Approved payout (billed − discrepancy)
+                  </td>
+                  <td className="pt-1 text-right font-mono text-sm font-semibold tabular-nums text-good">
+                    {money(card.approved_payout_usd)}
+                  </td>
+                </tr>
               </tfoot>
             </table>
           </div>
